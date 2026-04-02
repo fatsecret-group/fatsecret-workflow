@@ -6,7 +6,7 @@ Claude Code plugin for the FatSecret delivery team — orchestrates the full fea
 
 1. **Add the marketplace:**
    ```bash
-   claude plugins marketplace add fszbn/fatsecret-workflow
+   claude plugins marketplace add https://github.com/fszbn/fatsecret-workflow.git
    ```
 
 2. **Install the plugin:**
