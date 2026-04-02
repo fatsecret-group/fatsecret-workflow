@@ -1,0 +1,67 @@
+"ID","Title","Account Type","Expected Result","Steps","Steps (Expected Result)"
+"T1100338","[1] Verify Food logging bottom sheet is opening when Add Food is tapped from Diary meal type","Premium Member","","Step Description:
+<p>The food logging bottom sheet opens directly with the Diary screen in the background. The meal type selector is bypassed.</p>
+Expected Result:
+<p>Tap the ""Add Food"" (or ""+"") button for a specific meal section on the Diary screen.</p>","<p>Tap the ""Add Food"" (or ""+"") button for a specific meal section on the Diary screen.</p>"
+"","","","","
+Step Description:
+<p>Search page is opened and selected meal type is displayed in the header</p>
+Expected Result:
+<p>Tap Search</p>","<p>Tap Search</p>"
+"T1100341","[4] Verify Meal Type Selector is appearing when Add Food is tapped from Me Tab","Member","","Step Description:
+<p>The Meal Type Selector is displayed to the user.</p>
+Expected Result:
+<p>Tap the ""Add Food"" button from the Me Tab.</p>","<p>Tap the ""Add Food"" button from the Me Tab.</p>"
+"","","","","
+Step Description:
+<p>The food logging bottom sheet opens with the Diary screen in the background.</p>
+Expected Result:
+<p>Select a specific meal type from the selector menu.</p>","<p>Select a specific meal type from the selector menu.</p>"
+"","","","","
+Step Description:
+<p>Search page is opened and selected meal type is displayed in the header</p>
+Expected Result:
+<p>Tap Search</p>","<p>Tap Search</p>"
+"T1100346","[9] Verify UI of the Launcher bottom sheet","Premium Member","","Step Description:
+<p>Observe the UI</p>
+<ul>
+<li>Search bar with the instructional wordings</li>
+<li>Barcode scan icon and text under</li>
+<li>Take Photo icon and text under ( Free User)</li>
+<li>Smart Food Scan icon and text under ( Premium User)</li>
+<li>Smart Assistant icon with yellow background, text and lock icon under ( Free User)</li>
+<li>Smart Assistant icon with yellow background, text and NO lock icon under ( Premium User)</li>
+<li>My Food tab with text under</li>
+</ul>
+Expected Result:
+<p>Tap Add Food from any entry point</p>","<p>Tap Add Food from any entry point</p>"
+"T1100376","[39] Verify Food is recorded correctly in Diary","Member","","Step Description:
+<p>The food item is successfully logged to the user's diary with selected meal type</p>
+Expected Result:
+<p>Case 1: User is happy with the selected meal type</p>
+<ul>
+<li>Select a food item and save</li>
+</ul>","<p>Case 1: User is happy with the selected meal type</p>
+<ul>
+<li>Select a food item and save</li>
+</ul>"
+"","","","","
+Step Description:
+<p>The food item is successfully logged to the user's diary under the updated meal type.</p>
+Expected Result:
+<p>Case 2: User change to different meal type</p>
+<ul>
+<li>Select a food item and save</li>
+</ul>","<p>Case 2: User change to different meal type</p>
+<ul>
+<li>Select a food item and save</li>
+</ul>"
+"T1100409","[72] Verify New Food Logging UI is displayed for newly created accounts","Member","","Step Description:
+<p>The account is successfully created.</p>
+Expected Result:
+<p>Create a new account after the official release timestamp.</p>","<p>Create a new account after the official release timestamp.</p>"
+"","","","","
+Step Description:
+<p>The New Food Logging UI is displayed.</p>
+Expected Result:
+<p>Navigate to the Food Logging section from the Diary screen.</p>","<p>Navigate to the Food Logging section from the Diary screen.</p>"
