@@ -120,6 +120,16 @@ Uses all prior outputs (story-analysis, design, test plan) as input.
 
 **Figma design coverage is enforced here.** Every UI element in the plan must have a corresponding Figma design node. If any UI element cannot be matched to a Figma node, ask the user for the design before including it in the plan. If you must make assumptions and build UI without a design, confirm with the human first. This is the checkpoint where missing designs surface — even if Figma URLs were not provided in Step 1, any UI work in the plan requires design backing.
 
+**Plan must include review-task step.** When invoking `writing-plans`, instruct it to add the following as the **second-to-last step** of every task (before the commit step):
+
+```markdown
+- [ ] **Step N: Review task**
+
+Invoke `fatsecret-workflow:review-task` on the changes from this task. Do NOT commit or mark the task complete until the review passes and the human confirms.
+```
+
+This ensures review-task runs regardless of which execution skill is used.
+
 Save output to `docs/plans/<feature-name>/implementation-plan.md`.
 
 Wait for human confirmation before proceeding.
