@@ -102,6 +102,18 @@ Then, for each relevant user segment (e.g. new users, existing users upgrading, 
 - Which parts of the feature are reachable vs unreachable?
 - Are there unintended behaviors caused by pre-existing state conflicting with new logic?
 
+**Step 5b — Identify event tracking requirements (Avo)**
+
+**Only run this step if the current Stories include a dedicated event tracking Story.** If none is present, skip this step entirely.
+
+If one is present, extract from it:
+- Every event name the Story specifies
+- Each event's properties/parameters
+- The trigger condition (what user action or state change fires it)
+- The Item each tracked event will attach to (usually the feature Item whose flow triggers the event)
+
+Do not resolve readiness here — that belongs to the Confirmation Gate. Just collect the list.
+
 **Step 6 — Present preliminary analysis**
 Present to the user:
 - Feature flows and affected areas discovered from the codebase, organized by functionality (not raw code locations)
@@ -117,7 +129,8 @@ Then proceed to the Confirmation Gate to resolve ambiguities interactively.
 Walk the user through questions **one at a time**, in this order:
 1. **Term disambiguations** (from Step 4): "Story says X — I found these in the code: [list]. Which one is meant? Are the others also affected?"
 2. **Dimension completeness** (from Step 5): "I identified these dimensions that affect this feature: [list]. Are there others I'm missing?"
-3. **Ambiguities and edge cases**: For each, state what is unclear and why it matters. Provide options if applicable.
+3. **Avo branch readiness** (only if Step 5b ran): "Is the Avo branch with these events [list] already merged into the project? Yes → Items carry real tracking code. No → Items carry `// TODO: Add Avo tracking for <event> when Avo branch is merged` placeholders." Record the answer — it drives the Event Tracking field on every affected Item.
+4. **Ambiguities and edge cases**: For each, state what is unclear and why it matters. Provide options if applicable.
 
 For each question:
 1. State it clearly
@@ -167,6 +180,7 @@ Table or list describing each relevant user segment: who they are, what pre-exis
   - Existing functionality to modify (confirmed by human)
   - Existing functionality to remove (confirmed by human)
 **Key UI Specs**: (if Figma available, list design parameters)
+**Event Tracking**: (only if this Item has tracking requirements) Either the confirmed Avo event(s) + properties + trigger conditions (when Avo branch is ready), or an explicit note that tracking is deferred to placeholders until the Avo branch is merged — list the event names that need TODO placeholders so implementers know what to stub
 **Upgrade Impact**: How this item behaves for existing users updating the app — initial flag states, reachability, edge cases
 **Test Considerations**: Complete test thinking for this Item, explicitly including upgrade scenarios
 
@@ -179,4 +193,5 @@ Numbered list of every unresolved ambiguity, edge case, or definition gap discov
 - Do NOT skip the Human Confirmation Gate — presenting associations and waiting for confirmation is mandatory
 - The output document must be self-contained: a reader should understand the full scope without referring back to the original Stories
 - Every Item MUST include an **Upgrade Impact** section — even if the answer is "no impact on existing users"
+- If tracking requirements exist (Step 5b found any), the Avo branch readiness question is mandatory and every affected Item MUST carry an explicit **Event Tracking** field distinguishing real tracking code vs placeholder TODOs. This distinction is what tells the downstream writing-plans / engineer which to emit.
 - The **Ambiguities & Open Questions** section is mandatory — if you found zero ambiguities, you didn't look hard enough
