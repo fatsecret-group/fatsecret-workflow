@@ -51,7 +51,7 @@ Some skills integrate with external tools via MCP. **Skills gracefully degrade i
 
 | MCP Server | Used by | Purpose |
 |------------|---------|---------|
-| [Figma MCP](https://github.com/figma/figma-mcp) | `figma-design-brief`, `figma-driven-implementation`, `review-task` | Design-to-code workflow |
+| [Figma MCP](https://github.com/figma/figma-mcp) | `story-analysis`, `figma-driven-implementation`, `review-task` | Design-to-code workflow |
 | [Codex MCP](https://github.com/openai/codex) | `review-task` | AI code review debates |
 | [Shortcut MCP](https://www.npmjs.com/package/@shortcut/mcp) | `story-analysis` | Read stories from Shortcut |
 | [XcodeBuildMCP](https://github.com/getsentry/XcodeBuildMCP) | `run`, `review-task` | Build, run, UI automation |
@@ -137,7 +137,6 @@ Requires `OPENAI_API_KEY` environment variable.
 |-------|-------------|
 | `story-analysis` | Analyze Shortcut stories + Figma designs into executable items |
 | `write-test-plan` | Generate test plans from stories/requirements |
-| `figma-design-brief` | Fetch and analyze Figma designs into a design brief |
 
 ### Implementation
 
