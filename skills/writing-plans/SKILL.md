@@ -24,6 +24,21 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 
 If the spec covers multiple independent subsystems, it should have been broken into sub-project specs during brainstorming. If it wasn't, suggest breaking this into separate plans — one per subsystem. Each plan should produce working, testable software on its own.
 
+## Confusion Protocol
+
+Before you lock in decomposition decisions in the next section — and again whenever you're about to commit to an approach inside a task — scan for high-stakes ambiguity:
+
+- Two plausible architectures or data models for the same requirement
+- A spec detail that contradicts existing patterns and you're unsure which to follow
+- A destructive or migration operation where the scope is unclear
+- Missing context that would meaningfully change your approach (e.g., unknown data shape, unclear ownership boundary, unresolved design reference)
+
+If you spot any of these: **STOP**. Do not start writing the plan. Name the ambiguity in one sentence, present 2-3 options with tradeoffs, and ask the user before proceeding. A plan built on the wrong architectural assumption wastes every task downstream — the cost of pausing to confirm is far lower than the cost of re-planning after Task 3.
+
+This does NOT apply to routine decisions, small features, or obvious choices. Use judgment: if a reasonable engineer could read the spec and proceed without questions, proceed. The protocol is for *high-stakes* ambiguity, not every micro-decision.
+
+Once resolved (or confirmed absent), continue to File Structure.
+
 ## File Structure
 
 Before defining tasks, map out which files will be created or modified and what each one is responsible for. This is where decomposition decisions get locked in.
@@ -34,6 +49,14 @@ Before defining tasks, map out which files will be created or modified and what 
 - In existing codebases, follow established patterns. If the codebase uses large files, don't unilaterally restructure - but if a file you're modifying has grown unwieldy, including a split in the plan is reasonable.
 
 This structure informs the task decomposition. Each task should produce self-contained changes that make sense independently.
+
+**Folder placement — confirm with human, no skipping.** Whenever the plan introduces *new* files, you MUST ask the human which folder each new file belongs in before writing the File Structure section. List the proposed new files and, for each, either:
+- propose a specific folder with a one-line rationale (e.g., matches a sibling file's pattern), and ask the human to confirm or redirect, or
+- ask outright if no obvious home exists.
+
+Do not guess folder placement from codebase pattern-matching alone — folder organization often encodes ownership, module boundaries, or conventions that aren't visible in the file tree. Wait for the human's answer before proceeding. This rule has no exceptions, even for "obvious" placements.
+
+Files being *modified* don't need this check — their location is already fixed.
 
 ## Bite-Sized Task Granularity
 
