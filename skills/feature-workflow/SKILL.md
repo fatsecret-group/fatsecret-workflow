@@ -15,13 +15,14 @@ Before starting, verify that required skills are available:
 - `fatsecret-workflow:story-analysis`
 - `fatsecret-workflow:write-test-plan`
 - `fatsecret-workflow:review-task`
-- `superpowers:writing-plans`
-- `superpowers:test-driven-development`
+- `fatsecret-workflow:writing-plans`
 - `superpowers:verification-before-completion`
 - `superpowers:finishing-a-development-branch`
 
 If superpowers skills are missing, tell the user:
 > "This workflow requires the superpowers plugin. Install it with: `claude plugins add superpowers-marketplace/superpowers`"
+
+**Note on testing:** All per-task verification is owned by `review-task`. During implementation, the engineer iterates with `xcodebuildmcp` to confirm the code compiles — that's part of implementation itself.
 
 ## Workflow at a Glance
 
@@ -30,8 +31,8 @@ Step 1: Introduction        — collect input, confirm output folder
 Step 2: Story Analysis      — understand stories + explore code [skip if no stories]
 Step 3: Design Exploration  — architecture decisions, implementation approach
 Step 4: Test Plan           — define acceptance criteria
-Step 5: Implementation Plan — detailed task breakdown
-Step 6: Build               — per-task loop: TDD → review → commit
+Step 5: Implementation Plan — detailed task breakdown (plan defines each task's steps)
+Step 6: Build               — execute each task per the plan; review-task is the verdict gate
 Step 7: Verify & Ship       — final verification + finish branch
 ```
 
@@ -62,8 +63,8 @@ Present this to the user and collect input:
 > **Analyze** → understand stories, explore code for hidden impacts
 > **Design** → architecture decisions and implementation approach
 > **Test Plan** → define acceptance criteria
-> **Plan** → detailed implementation steps
-> **Build** → implement with TDD, verify against Figma, code review
+> **Plan** → detailed implementation steps per task
+> **Build** → implement, build & run in simulator, review against Figma, commit
 >
 > To get started — do you have **Shortcut Stories** (Story IDs or Iteration ID) or **Figma designs** to share?
 
@@ -113,22 +114,12 @@ Wait for human confirmation before proceeding.
 
 ## Step 5 — Implementation Plan [human gate]
 
-**Skill**: `superpowers:writing-plans`
+**Skill**: `fatsecret-workflow:writing-plans`
 **Condition**: Always.
 
 Uses all prior outputs (story-analysis, design, test plan) as input.
 
 **Figma design coverage is enforced here.** Every UI element in the plan must have a corresponding Figma design node. If any UI element cannot be matched to a Figma node, ask the user for the design before including it in the plan. If you must make assumptions and build UI without a design, confirm with the human first. This is the checkpoint where missing designs surface — even if Figma URLs were not provided in Step 1, any UI work in the plan requires design backing.
-
-**Plan must include review-task step.** When invoking `writing-plans`, instruct it to add the following as the **second-to-last step** of every task (before the commit step):
-
-```markdown
-- [ ] **Step N: Review task**
-
-Invoke `fatsecret-workflow:review-task` on the changes from this task. Do NOT commit or mark the task complete until the review passes and the human confirms.
-```
-
-This ensures review-task runs regardless of which execution skill is used.
 
 Save output to `docs/plans/<feature-name>/implementation-plan.md`.
 
@@ -138,39 +129,22 @@ Wait for human confirmation before proceeding.
 
 ## Step 6 — Build
 
-**Condition**: Always. Execute each task from the implementation plan in order.
+**Condition**: Always.
 
 ### Pre-task check
 
-Before starting each new task, check for uncommitted changes (`git status`). If there are uncommitted changes from a previous task, commit them before proceeding.
+Before starting each new task, run `git status` to confirm the prior task committed cleanly. If uncommitted changes remain, investigate the root cause before starting the new task.
 
-### Per-task loop
+### Execution
 
-For each task in the implementation plan, **announce the checklist before starting**:
+Execute each task exactly as written in the plan. **The plan (defined by `fatsecret-workflow:writing-plans`) is the single source of truth for the steps inside a task.**
 
-> **Task N: [name]**
-> - [ ] 6a. Implement with TDD → `superpowers:test-driven-development`
-> - [ ] 6b. Review task → `fatsecret-workflow:review-task`
-> - [ ] 6c. Fix issues & commit
+Invariants Step 6 enforces on top of the plan:
 
-Then execute each step in order, checking off as you go. Do NOT proceed to the next task until all three are checked.
-
-**Step 6a — Implement with TDD**: Follow `superpowers:test-driven-development` for the current task only. Stop when the task is complete and builds.
-
-**Step 6b — Review task**: After the task builds successfully, invoke `fatsecret-workflow:review-task` on the task's changes. This runs spec compliance, UI verification against Figma (if UI changed), and codex debate review — all while the implementation context is still fresh.
-
-**Step 6c — Fix & commit**: Fix any issues raised by the review, then commit.
-
-**CRITICAL: Only `review-task` marks tasks complete.** Do NOT call TaskUpdate(completed) directly. The review-task skill marks the task done after all checks pass and the human confirms. This is a structural gate — no task is "done" without review.
-
-### Debug Verification with Utils.runTest()
-
-When a task produces UI that cannot be triggered through normal app flow yet (e.g., a prompt method that isn't wired up), use `Utils.runTest()` to verify it:
-
-1. Add temporary test code at the start of `Utils.runTest()` to trigger the UI element
-2. Build and run the app in the simulator, trigger runTest from the debug menu
-3. Take a screenshot and verify the UI (compare with Figma if applicable)
-4. **Remove the test code** before proceeding to the next task
+- `review-task` produces the `APPROVED` verdict that unlocks the task's final commit + `TaskUpdate(completed)` step.
+- On `ESCALATED`, halt the task and surface the issues to the human.
+- Commit + `TaskUpdate(completed)` happen exclusively in the task's final plan step.
+- The review-fix loop (iterate on issues until APPROVED, capped at 3 rounds before ESCALATED) lives inside `review-task`.
 
 ---
 
