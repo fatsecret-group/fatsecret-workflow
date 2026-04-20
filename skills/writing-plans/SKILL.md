@@ -58,6 +58,25 @@ Do not guess folder placement from codebase pattern-matching alone — folder or
 
 Files being *modified* don't need this check — their location is already fixed.
 
+## UI Tasks: Figma Integration
+
+If a task creates or modifies UI, the plan MUST wire in `fatsecret-workflow:figma-driven-implementation` so implementation values come from Figma per-component rather than only from the plan's code block. Why: you extract Figma values once while planning (error-prone for multi-component screens), but `figma-driven-implementation` queries per component at implementation time — it catches drift before `review-task` has to spot it visually.
+
+Required for every UI task:
+
+1. **Record Figma nodeIds in the Files section.** For each UI file created or modified, list the component's Figma `nodeId` next to the path — pull these from `story-analysis` output (Source / Key UI Specs) or from the user. Example:
+   ```
+   **Files:**
+   - Create: `Views/TextInputField.swift` — Figma node `123:456`
+   - Modify: `Views/FoodDiary.swift:88-120` — Figma node `789:012`
+   ```
+
+2. **Instruct the implementer to invoke `figma-driven-implementation` in Step 1.** The skill queries Figma per component and extracts exact values (dimensions, padding, font, color, corner radius). It is the source of truth for visual values — not the plan's code block.
+
+3. **Treat the plan's code block as a starting point, not a contract for pixel values.** Write your best extraction of Figma values into the code block, but expect the implementer to reconcile each component against Figma. If you're unsure about a specific value, mark it `// TODO: verify against Figma node <nodeId>` rather than guessing.
+
+If a UI task has no corresponding Figma node, stop and surface this to the user — per `feature-workflow` Step 5, UI work without design backing needs explicit human confirmation before the plan proceeds.
+
 ## Bite-Sized Task Granularity
 
 **Each step is one action (a few minutes, except Implement which can be longer):**
@@ -91,8 +110,8 @@ Each task uses this three-step shape.
 ### Task N: [Component Name]
 
 **Files:**
-- Create: `exact/path/to/File.swift`
-- Modify: `exact/path/to/Existing.swift:123-145`
+- Create: `exact/path/to/File.swift` — Figma node `<nodeId>` (UI files only)
+- Modify: `exact/path/to/Existing.swift:123-145` — Figma node `<nodeId>` (UI files only)
 
 - [ ] **Step 1: Implement**
 
@@ -104,6 +123,8 @@ struct SomeView: View {
     }
 }
 ```
+
+**For UI tasks:** Before writing or adjusting visual values in the code block above, invoke `fatsecret-workflow:figma-driven-implementation` with the nodeIds listed in the Files section. That skill queries Figma per component and gives you the authoritative values — reconcile the code block against its output before compiling. See the "UI Tasks: Figma Integration" section for the rationale.
 
 During implementation, iterate with `xcodebuildmcp` (`build_sim` on the session's default scheme/simulator) to confirm the code compiles cleanly. Fix any compile errors or new warnings before moving on. No simulator run, no UI inspection, no test scaffolding — all of that is `review-task`'s job in Step 2.
 
@@ -143,6 +164,7 @@ Every step must contain the actual content an engineer needs. These are **plan f
 - Commit + `TaskUpdate(completed)` only in the task's Step 3, after `review-task` returns APPROVED
 - No test-writing steps — project has no unit test or UI test infrastructure
 - No standalone Build step — compile verification is part of Step 1 Implement
+- UI tasks list Figma nodeIds in the Files section and invoke `figma-driven-implementation` in Step 1
 
 ## Self-Review
 

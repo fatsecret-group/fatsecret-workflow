@@ -5,8 +5,8 @@ description: Use when implementing UI components that have a Figma design refere
 
 ## When to Use
 
-- A Figma design was analyzed earlier (via `figma-design-brief`) and component nodeIds are available
-- You are about to write or modify UI code for a component that has a Figma reference
+- Invoked from `writing-plans` Step 1 Implement when a task creates or modifies UI
+- Component nodeIds are available — typically listed in the task's Files section, or carried over from `story-analysis` output (Source / Key UI Specs)
 - Do NOT invoke if the current task has no Figma design association
 
 ## The Rule
@@ -17,12 +17,12 @@ When implementing ANY visual component from a Figma design, query Figma for that
 
 For each UI element you are implementing:
 
-1. **Query**: Call `mcp__figma__get_design_context` with the specific component's nodeId (from the Design Brief)
+1. **Query**: Call `mcp__figma__get_design_context` with the specific component's nodeId (from the task's Files section or `story-analysis` output)
 2. **Extract**: Pull exact values from the returned code/metadata:
    - Dimensions (width, height — use fixed or flexible as design indicates)
    - Padding and margins
    - Font: family, size, weight, line height
-   - Colors (map to FSColor tokens when possible, otherwise use literal with a `// Figma: #hex` comment)
+   - Colors (map to `FSColorExtension` tokens when possible, otherwise use literal with a `// Figma: #hex` comment — do NOT use `FSColor`, it is outdated and being replaced)
    - Corner radius
    - Shadows and opacity
 3. **Implement**: Write SwiftUI code using these exact values
@@ -37,12 +37,13 @@ For each component:
 
 | Figma value | Project equivalent |
 |-------------|-------------------|
-| Colors | FSColor (check FSColor.swift first) |
-| Fonts | FSFont (check FSFont.swift first) |
-| Components | DSComp* series, existing SwiftUI views |
+| Colors | `FSColorExtension` (check `FSColorExtension.swift` first). **Do NOT use `FSColor` — it is outdated and being replaced.** |
+| Fonts (SwiftUI) | `FSFont` (check `FSFont.swift` first) |
+| Fonts (UIKit / `NSAttributedString`) | Prefer the `NSAttributedString` extension in `Extensions.swift` that initializes with `FSFont`, instead of assembling attribute dictionaries by hand |
+| Components | `DSComp*` series, existing SwiftUI views |
 | Spacing | Use literal values if no spacing tokens exist |
 
-If an exact FSColor/FSFont match exists, use it. If not, use the literal value.
+If an exact `FSColorExtension`/`FSFont` match exists, use it. If not, use the literal value with a `// Figma: #hex` or `// Figma: <font>/<size>/<weight>` comment.
 
 ## After All Components Are Implemented
 
