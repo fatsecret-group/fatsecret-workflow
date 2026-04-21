@@ -11,7 +11,7 @@
         "url": "https://github.com/fszbn/fatsecret-workflow.git"
       },
       "description": "FatSecret delivery team workflow: feature development lifecycle, story analysis, test planning, Figma-driven implementation, code review, and build tools",
-      "version": "1.0.0"
+      "version": "1.1"
     }
   ]
 }
