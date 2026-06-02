@@ -9,6 +9,10 @@ description: Use when starting a new feature or when the user says "new feature"
 
 Orchestrates the full feature development lifecycle by invoking other skills in sequence. Each step has a human gate before proceeding.
 
+## Codebase Knowledge (read first)
+
+Before Step 2 (Analysis), Step 3 (Design), Step 5 (Implementation Plan), and Step 6 (Build), read `docs/plans/CODEBASE-KNOWLEDGE.md` if it exists — the codebase map (entry points, state ownership, navigation, networking, UI/localization/analytics conventions, build/tooling diagnostics; task index at the top). Honor it during the relevant step (don't restate it in artifacts); consult it before exploring or when unsure how something is done here.
+
 ## Prerequisites Check
 
 Before starting, verify that required skills are available:
