@@ -6,7 +6,7 @@ description: Use when user provides stories or feature requirements and needs a 
 ## When to Use
 
 - User provides stories, feature requirements, or a brief description of what to build
-- BEFORE brainstorming or writing-plans
+- After `story-analysis`, BEFORE `writing-plans`
 - The output test plan becomes the acceptance criteria for implementation
 
 ## Input
@@ -22,9 +22,11 @@ Read and understand all stories before writing test cases.
 
 ## Output Format
 
-Write the test plan as a CSV matching the format in `example-test-plan.csv` (in this skill's directory).
+Write the test plan as **self-contained HTML with a left-side sticky TOC** — copy the structure from the shared skeleton at `../feature-workflow/references/plan-doc-skeleton.html` (in the `fatsecret-workflow` plugin). Render the cases as one or more `<table>`s grouped by feature area (see Grouping below); use the `--pass-*` / `--warn-*` / `--gate-*` CSS vars from the skeleton for status cells if you include a result column.
 
-Read that file to understand the exact column structure, HTML formatting, and multi-row step pattern before writing.
+Use `example-test-plan.csv` (in this skill's directory) as the reference for the **column structure and the multi-row step pattern** — map those columns to table headers and the step rows to table rows.
+
+**CSV alternative:** If the project's CLAUDE.md asks for CSV, or QA needs to import the plan into a spreadsheet, emit `test-plan.csv` matching `example-test-plan.csv` instead. HTML is the default; CSV is the explicit-request fallback.
 
 ## Writing Guidelines
 
@@ -62,7 +64,7 @@ Order test cases logically by feature area:
 
 ## After Writing
 
-1. Save the test plan to the feature's output directory (see feature-workflow Output Directory rule)
+1. Save the test plan to the feature's output directory (see feature-workflow Output Directory rule) as `test-plan.html` (or `test-plan.csv` per the fallback above)
 2. Present a summary to the user: total test cases, coverage areas, any gaps
 3. Ask user to review and approve before proceeding to `writing-plans`
 4. The approved test plan becomes the acceptance criteria for implementation

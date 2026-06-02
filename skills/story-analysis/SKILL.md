@@ -150,43 +150,29 @@ Do NOT dump all questions as a list for the user to answer in bulk — this lead
 - Arrange Items in execution order respecting dependencies
 
 **Step 8 — Save document**
-- Save to the feature's output directory (see feature-workflow Output Directory rule)
+- Save to the feature's output directory (see feature-workflow Output Directory rule) as `story-analysis.html`
 - Present a summary to the user
 - This document is the input for `write-test-plan` and `writing-plans`
 
 ## Output Format
 
-```markdown
-# Feature: <feature name>
+Write the document as **self-contained HTML with a left-side sticky TOC** — copy the structure from the shared skeleton at `../feature-workflow/references/plan-doc-skeleton.html` (in the `fatsecret-workflow` plugin). Fill the `<nav id="toc">` with the sections below and give each `<h2>`/`<h3>` a matching `id`. Render each **Executable Item** as an `.item-card`, the **Source / Summary / Preconditions / …** rows with `.field-label`, and the metadata line (Stories / Branch / Author / Date) as `p.meta`. (If a project's CLAUDE.md overrides the format to markdown, use the same section structure in markdown instead.)
 
-## Overview (batch mode only)
-- Feature description
-- Dependencies and execution order between Stories
+The document must contain these sections (mapped to HTML headings + cards):
 
-## Behavioral Dimensions
-Table listing each dimension that affects this feature's behavior, its possible values, and which Items it impacts. Confirmed by human during analysis.
-
-## User Segments & Upgrade Impact
-Table or list describing each relevant user segment: who they are, what pre-existing state they may have, and how the feature behaves for them on first encounter.
-
-## Executable Items
-
-### Item 1: <title>
-**Source**: Story #xxx / Figma node xxx
-**Summary**: What to do and why
-**Preconditions**: What existing logic or other Items this depends on
-**Scope of Impact**:
-  - New functionality to add
-  - Existing functionality to modify (confirmed by human)
-  - Existing functionality to remove (confirmed by human)
-**Key UI Specs**: (if Figma available, list design parameters)
-**Event Tracking**: (only if this Item has tracking requirements) Either the confirmed Avo event(s) + properties + trigger conditions (when Avo branch is ready), or an explicit note that tracking is deferred to placeholders until the Avo branch is merged — list the event names that need TODO placeholders so implementers know what to stub
-**Upgrade Impact**: How this item behaves for existing users updating the app — initial flag states, reachability, edge cases
-**Test Considerations**: Complete test thinking for this Item, explicitly including upgrade scenarios
-
-## Ambiguities & Open Questions
-Numbered list of every unresolved ambiguity, edge case, or definition gap discovered during analysis. Each entry should describe: the ambiguity, why it matters, and which Items it affects.
-```
+- **Overview** (batch mode only) — feature description; dependencies and execution order between Stories
+- **Behavioral Dimensions** — `<table>` listing each dimension that affects behavior, its possible values, and which Items it impacts. Confirmed by human during analysis.
+- **User Segments & Upgrade Impact** — `<table>` or list describing each relevant user segment: who they are, what pre-existing state they may have, and how the feature behaves for them on first encounter.
+- **Executable Items** — one `.item-card` per Item, each with:
+  - **Source**: Story #xxx / Figma node xxx
+  - **Summary**: What to do and why
+  - **Preconditions**: What existing logic or other Items this depends on
+  - **Scope of Impact**: new functionality to add / existing to modify (human-confirmed) / existing to remove (human-confirmed)
+  - **Key UI Specs**: (if Figma available, list design parameters)
+  - **Event Tracking**: (only if this Item has tracking requirements) either the confirmed Avo event(s) + properties + trigger conditions (when the Avo branch is ready), or an explicit note that tracking is deferred to placeholders until the Avo branch is merged — list the event names that need TODO placeholders so implementers know what to stub
+  - **Upgrade Impact**: how this Item behaves for existing users updating the app — initial flag states, reachability, edge cases
+  - **Test Considerations**: complete test thinking for this Item, explicitly including upgrade scenarios
+- **Ambiguities & Open Questions** — numbered list of every unresolved ambiguity, edge case, or definition gap discovered during analysis. Each entry describes: the ambiguity, why it matters, and which Items it affects.
 
 ## Important
 

@@ -17,12 +17,12 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 
 **Announce at start:** "I'm using the writing-plans skill to create the implementation plan."
 
-**Save plans to:** `docs/plans/<feature-name>/implementation-plan.md` when invoked by `fatsecret-workflow:feature-workflow`. Otherwise `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`.
-- (User preferences for plan location override these defaults)
+**Save plans to:** `docs/plans/<feature-name>/implementation-plan.html` when invoked by `fatsecret-workflow:feature-workflow` (self-contained HTML — see "Plan Document Format" below). Otherwise `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md` (markdown — the superpowers standalone default).
+- (User preferences for plan location/format override these defaults)
 
 ## Scope Check
 
-If the spec covers multiple independent subsystems, it should have been broken into sub-project specs during brainstorming. If it wasn't, suggest breaking this into separate plans — one per subsystem. Each plan should produce working, testable software on its own.
+If the spec covers multiple independent subsystems, it should have been broken into sub-project specs during story-analysis / scoping. If it wasn't, suggest breaking this into separate plans — one per subsystem. Each plan should produce working, testable software on its own.
 
 ## Confusion Protocol
 
@@ -84,67 +84,64 @@ If a UI task has no corresponding Figma node, stop and surface this to the user 
 - "Invoke review-task" - step (produces verdict only)
 - "Commit & mark complete" - step (runs after APPROVED verdict)
 
+## Plan Document Format
+
+When invoked by `fatsecret-workflow:feature-workflow`, write the plan as **self-contained HTML with a left-side sticky TOC** — copy the structure from the shared skeleton at `../feature-workflow/references/plan-doc-skeleton.html` (in the `fatsecret-workflow` plugin). Render each task as a `.task-card`, its steps as an `<ol>` / labelled `<p>`s, code as `<pre><code>`, and the commit gate as a `.gate` div. The `<nav id="toc">` lists every task (anchor → the task's `id`). (Standalone superpowers plans stay markdown — see "Save plans to" above.)
+
+**Task tracking is via the harness task list** (`TaskCreate` / `TaskUpdate`), NOT document checkboxes — the HTML plan is the human-readable spec; live status lives in the task list.
+
 ## Plan Document Header
 
-**Every plan MUST start with this header:**
+**Every plan MUST open with this header** — `<h1>` + a `p.meta` line + a `.callout` for agentic workers:
 
-```markdown
-# [Feature Name] Implementation Plan
+```html
+<h1>[Feature Name] Implementation Plan</h1>
 
-> **For agentic workers:** Execute task-by-task via `fatsecret-workflow:feature-workflow` Step 6. Each task ends with an explicit Step 3 that commits AND calls `TaskUpdate(completed)`. Steps use checkbox (`- [ ]`) syntax for tracking.
+<p class="meta">
+  <strong>Goal</strong>: [one sentence describing what this builds] &nbsp;|&nbsp;
+  <strong>Architecture</strong>: [2-3 sentences about approach] &nbsp;|&nbsp;
+  <strong>Tech Stack</strong>: [key technologies/libraries] &nbsp;|&nbsp;
+  <strong>Inputs</strong>: <a href="story-analysis.html">story-analysis.html</a>, <a href="design.html">design.html</a>, <a href="test-plan.html">test-plan.html</a>
+</p>
 
-**Goal:** [One sentence describing what this builds]
-
-**Architecture:** [2-3 sentences about approach]
-
-**Tech Stack:** [Key technologies/libraries]
-
----
+<div class="callout">
+  <strong>For agentic workers:</strong> Execute task-by-task via <code>fatsecret-workflow:feature-workflow</code> Step 6.
+  Each task ends with an explicit Step 3 that commits AND calls <code>TaskUpdate(completed)</code>.
+</div>
 ```
 
 ## Task Structure
 
-Each task uses this three-step shape.
+Each task is a `.task-card` with the same three-step shape (Implement → Review → Commit). Give the card a `id` so the TOC can link to it. When you reference a task anywhere (TOC, cross-links, commit message), use its descriptive title alongside the code — e.g. "Task 3 (Target screen wiring)", never a bare "Task 3".
 
-````markdown
-### Task N: [Component Name]
+```html
+<div class="task-card">
+<h3 id="t-n"><span class="task-id">Task N</span> — [Component Name]</h3>
 
-**Files:**
-- Create: `exact/path/to/File.swift` — Figma node `<nodeId>` (UI files only)
-- Modify: `exact/path/to/Existing.swift:123-145` — Figma node `<nodeId>` (UI files only)
+<p><span class="field-label">Files:</span>
+  Create <code>exact/path/to/File.swift</code> — Figma node <code>&lt;nodeId&gt;</code> (UI files only);
+  Modify <code>exact/path/to/Existing.swift:123-145</code> — Figma node <code>&lt;nodeId&gt;</code> (UI files only)
+</p>
 
-- [ ] **Step 1: Implement**
-
-```swift
-// Complete code for the file or modification — no TBDs, no "similar to above".
+<p><span class="field-label">Step 1 — Implement:</span></p>
+<pre><code>// Complete code for the file or modification — no TBDs, no "similar to above".
 struct SomeView: View {
     var body: some View {
         Text("Hello")
     }
 }
+</code></pre>
+<p><strong>For UI tasks:</strong> before writing or adjusting visual values above, invoke <code>fatsecret-workflow:figma-driven-implementation</code> with the nodeIds in the Files row — it queries Figma per component and is the source of truth for visual values; reconcile the code block against its output before compiling (see "UI Tasks: Figma Integration"). During implementation, iterate with <code>xcodebuildmcp</code> (<code>build_sim</code> on the session's default scheme/simulator) until it compiles cleanly; fix any new warnings. No simulator run, no UI inspection, no test scaffolding — all of that is <code>review-task</code>'s job in Step 2.</p>
+
+<p><span class="field-label">Step 2 — Review:</span> Invoke <code>fatsecret-workflow:review-task</code> on this task's changes. It returns <code>APPROVED</code> or <code>ESCALATED</code>. Proceed to Step 3 only on <code>APPROVED</code>; on <code>ESCALATED</code>, surface the issues to the human and wait for instructions.</p>
+
+<div class="gate">
+Step 3 — Commit &amp; mark complete (only reachable when Step 2 returned <code>APPROVED</code>):
+<code>git add &lt;exact paths changed in this task&gt;</code> → <code>git commit -m "&lt;conventional commit message&gt;"</code> → then <code>TaskUpdate(taskId=&lt;this task's id&gt;, status=completed)</code>.
+This is the ONLY point in the plan where commit + <code>TaskUpdate(completed)</code> happen for this task.
+</div>
+</div>
 ```
-
-**For UI tasks:** Before writing or adjusting visual values in the code block above, invoke `fatsecret-workflow:figma-driven-implementation` with the nodeIds listed in the Files section. That skill queries Figma per component and gives you the authoritative values — reconcile the code block against its output before compiling. See the "UI Tasks: Figma Integration" section for the rationale.
-
-During implementation, iterate with `xcodebuildmcp` (`build_sim` on the session's default scheme/simulator) to confirm the code compiles cleanly. Fix any compile errors or new warnings before moving on. No simulator run, no UI inspection, no test scaffolding — all of that is `review-task`'s job in Step 2.
-
-- [ ] **Step 2: Review task**
-
-Invoke `fatsecret-workflow:review-task` on this task's changes. It returns `APPROVED` or `ESCALATED`. Proceed to Step 3 only on `APPROVED`. On `ESCALATED`, surface the issues to the human and wait for instructions.
-
-- [ ] **Step 3: Commit & mark complete**
-
-Only reachable when Step 2 returned `APPROVED`.
-
-```bash
-git add <exact paths changed in this task>
-git commit -m "<conventional commit message describing this task>"
-```
-
-Then call `TaskUpdate(taskId=<this task's id>, status=completed)`.
-
-This is the ONLY point in the plan where commit + `TaskUpdate(completed)` happen for this task.
-````
 
 ## No Placeholders
 

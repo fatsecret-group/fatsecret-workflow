@@ -119,6 +119,7 @@ Commit + task completion belong exclusively to the plan's Step 3, executed by th
 
 ## Important
 
+- A user's `Approve` is a **single-use authorization for THIS task's commit only** — it does not pre-authorize the next task, a later push, or any housekeeping commit. Each commit needs its own same-turn OK. Subagents NEVER commit; the main agent runs the commit in plan Step 3 after this skill returns `APPROVED`.
 - The reviewer subagent only reports issues; the implementer subagent only writes code; this skill only produces a verdict
 - UI verification requires a Figma URL — check the implementation plan or story-analysis output for the relevant Figma node
 - If the app cannot be built (e.g., worktree without Xcode project), skip UI verification and note it in the report

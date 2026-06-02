@@ -46,13 +46,44 @@ All workflow artifacts for a feature are saved under a single folder:
 
 ```
 docs/plans/<feature-name>/
-  ├── story-analysis.md       (from Step 2)
-  ├── design.md                (from Step 3)
-  ├── test-plan.csv            (from Step 4)
-  └── implementation-plan.md   (from Step 5)
+  ├── story-analysis.html       (from Step 2)
+  ├── design.html               (from Step 3)
+  ├── test-plan.html            (from Step 4)
+  └── implementation-plan.html  (from Step 5)
 ```
 
 The feature folder name is confirmed with the user in Step 1.
+
+### Document format — HTML with a sticky TOC
+
+All plan artifacts (story-analysis, design, test-plan, implementation-plan) are written as **self-contained HTML** (inline CSS, no external deps) with a **left-side sticky Table of Contents**. These docs are reviewed in a browser by humans (dev / QA), not in a code editor — a sidebar TOC is far more navigable than scrolled markdown for documents this size.
+
+Use the shared skeleton at `references/plan-doc-skeleton.html` (in this skill's directory) as the starting structure for every artifact — it carries the proven CSS and the helper classes (`.item-card`, `.task-card`, `.gate`, `.callout`, `.field-label`, `.tag`/`.items-tag`, `.meta`). The sub-skills (`story-analysis`, `write-test-plan`, `writing-plans`) describe the *content* of each doc; this skeleton supplies the *rendering*.
+
+A project may override the format in its own CLAUDE.md (e.g. `docs/plans/<area>/CLAUDE.md` "Plan document format"). If a project explicitly asks for markdown or CSV, follow that instead.
+
+---
+
+## Large Projects — Phase Mode
+
+Some efforts are too large to run as a single feature (a migration, a multi-subsystem rollout). Run them in **phase mode** instead of one giant feature-workflow pass:
+
+1. **One project-level story-analysis, done ONCE.** Run `story-analysis` for the whole project up front, saved at the project root (`docs/plans/<project>/story-analysis.html`). It covers every phase's stories and the cross-cutting decisions — you do NOT redo it per phase.
+2. **Each phase is its own feature-workflow run**, scoped to a phase subfolder:
+   ```
+   docs/plans/<project>/
+     ├── story-analysis.html            (project-wide, done ONCE)
+     ├── CLAUDE.md                      (project conventions: doc format, logging, …)
+     └── phase-N-<name>/
+         ├── design.html                (this phase — Step 3)
+         ├── test-plan.html             (this phase — Step 4)
+         └── implementation-plan.html   (this phase — Steps 5–6)
+   ```
+   For each phase, treat its subfolder as the feature folder and run **Steps 3–6 plus the per-phase verification (Step 7a + 7b)**; Step 7c (finish branch) is NOT per-phase — it follows point 4's timing. **Skip Step 2's story gathering** — the project-level analysis already covers it (only re-open it if a phase surfaces genuinely new stories). But Steps 3–5 STILL take the project-root `story-analysis.html` as their story-analysis input: treat it as the *"with story analysis"* path in Step 3, not *"explore from scratch."*
+3. **Design decisions are numbered and shared across phases** (`D1`, `D6`, …) so later phases reference earlier ones. Record them in each phase's `design.html` and cross-link.
+4. **Settle branch strategy + Step-7 timing with the human at project start.** Phases commonly accumulate on one long-lived branch with the final finish-branch (Step 7c) run once at project end rather than per phase — but confirm this rather than assuming it; don't run a per-phase merge/PR unless the human asked for one.
+
+When the user names a phase ("Phase 5", "P5"), that phase's subfolder is the feature folder for its Step 3–6 artifacts — the project-level `story-analysis.html` + `CLAUDE.md` stay at the project root, not in the phase folder. The rest of each step applies unchanged.
 
 ---
 
@@ -74,9 +105,26 @@ Present this to the user and collect input:
 
 Collect Story IDs, Iteration IDs, and Figma URLs as provided.
 
-### 1b. Confirm output folder
+### 1b. Scale check — offer phase mode
+
+Before naming the output folder, judge the SIZE of what was collected. Offer **phase mode** (see "Large Projects — Phase Mode" above) ONLY when the work is a large epic / iteration that obviously spans multiple weeks and multiple releases — concretely, when **either** holds:
+
+- the stories span **more than one iteration**, or
+- there are **10+ stories**.
+
+If neither holds, say nothing — proceed as a single feature run. Don't offer phase mode for a handful of stories in one iteration; it's overhead a small feature doesn't need.
+
+When the threshold is met, use `AskUserQuestion` to offer the choice:
+- **Single feature run** — one pass of Steps 2–7, all artifacts in one folder.
+- **Phase mode** — one project-level story-analysis up front, then each phase run as its own pass (Steps 3–6 + 7a/7b).
+
+If the user picks phase mode, record the decision + the phase breakdown in the project-root `CLAUDE.md` so every later phase run inherits it without re-asking. If the project is already set up in phases (a project-root `story-analysis.html` + `phase-*/` folders already exist), phase mode is already in effect — skip the question and proceed with the named phase.
+
+### 1c. Confirm output folder
 
 > "I'll save all artifacts to `docs/plans/<feature-name>/` — does this name work?"
+
+(Phase mode: this phase's artifacts go in `docs/plans/<project>/phase-N-<name>/`; the project-level `story-analysis.html` + `CLAUDE.md` stay at the project root — confirm both.)
 
 ---
 
@@ -85,7 +133,7 @@ Collect Story IDs, Iteration IDs, and Figma URLs as provided.
 **Skill**: `fatsecret-workflow:story-analysis`
 **Condition**: Stories were provided (Story IDs, Iteration ID, or pasted text). If no stories, skip to Step 3.
 
-Save output to `docs/plans/<feature-name>/story-analysis.md`.
+Save output to `docs/plans/<feature-name>/story-analysis.html`.
 
 ---
 
@@ -99,7 +147,7 @@ Save output to `docs/plans/<feature-name>/story-analysis.md`.
 
 Explore the codebase, discuss trade-offs, and present a design to the user. Wait for human confirmation.
 
-Save output to `docs/plans/<feature-name>/design.md`.
+Save output to `docs/plans/<feature-name>/design.html`.
 
 ---
 
@@ -110,7 +158,7 @@ Save output to `docs/plans/<feature-name>/design.md`.
 
 Uses the story-analysis output (if available) and design exploration output as input.
 
-Save output to `docs/plans/<feature-name>/test-plan.csv`.
+Save output to `docs/plans/<feature-name>/test-plan.html`.
 
 Wait for human confirmation before proceeding.
 
@@ -125,7 +173,7 @@ Uses all prior outputs (story-analysis, design, test plan) as input.
 
 **Figma design coverage is enforced here.** Every UI element in the plan must have a corresponding Figma design node. If any UI element cannot be matched to a Figma node, ask the user for the design before including it in the plan. If you must make assumptions and build UI without a design, confirm with the human first. This is the checkpoint where missing designs surface — even if Figma URLs were not provided in Step 1, any UI work in the plan requires design backing.
 
-Save output to `docs/plans/<feature-name>/implementation-plan.md`.
+Save output to `docs/plans/<feature-name>/implementation-plan.html`.
 
 Wait for human confirmation before proceeding.
 
@@ -179,3 +227,4 @@ Verify coverage against implementation. Informational — does not block.
 - Do NOT skip steps. If a conditional step does not apply, move to the next.
 - Every step with a human gate requires explicit user confirmation before proceeding.
 - All artifacts save to the feature's output directory, not the skill's default location.
+- **Commit policy — applies to EVERY commit/push in the workflow.** Never run `git commit` / `git push` without an explicit human OK given in the *same* turn. Authorization is **single-use and per-commit**: a "go" / "y" from an earlier turn never carries over to a later commit. `review-task`'s `APPROVED` **is** the same-turn OK for *that task's* Step 3 commit — but it authorizes only that one commit, never the next task, a push, or a housekeeping commit. Subagents NEVER commit; commits happen only in the main agent's plan Step 3 (after `review-task` returns `APPROVED`) or in Step 7, each with its own same-turn OK.
