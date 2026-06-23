@@ -47,10 +47,9 @@ If an exact `FSColorExtension`/`FSFont` match exists, use it. If not, use the li
 
 ## After All Components Are Implemented
 
-1. Take a simulator screenshot: `mcp__xcodebuildmcp__screenshot`
-2. Get the Figma screenshot: `mcp__figma__get_screenshot`
-3. Present both to the user for visual comparison
-4. Fix any discrepancies by re-querying the specific component's nodeId
+This skill's job ends at **per-component Figma extraction + implementation**. The final screenshot-vs-Figma visual comparison is owned by `review-task` (its UI Verification check) — it is NOT done here. Keeping a single visual gate avoids duplicating the comparison at implementation time and matches `writing-plans` Step 1 ("No simulator run, no UI inspection — that is review-task's job").
+
+Before handing off, confirm each component was implemented from a fresh per-component Figma query (not from memory or the plan). If you notice a discrepancy while implementing, fix it by re-querying that component's nodeId — but do not run a simulator-screenshot / user-comparison pass here; that happens in `review-task` Step 2.
 
 ## Red Flags
 
