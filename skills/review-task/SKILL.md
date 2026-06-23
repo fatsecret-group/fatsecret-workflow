@@ -1,6 +1,6 @@
 ---
 name: review-task
-description: Use after implementing a task — runs spec compliance, build, simulator run, UI verification against Figma, and codex debate review, then returns APPROVED or ESCALATED. Does NOT commit or mark the task complete; the caller does that in the plan's Step 3.
+description: Use after implementing a task — runs spec compliance, build, simulator run, UI verification against Figma, codex debate review, and unit tests, then returns APPROVED or ESCALATED. Does NOT commit or mark the task complete; the caller does that in the plan's Step 3.
 ---
 
 ## When to Use
@@ -12,6 +12,7 @@ description: Use after implementing a task — runs spec compliance, build, simu
 
 This skill:
 - Reviews spec compliance, Figma UI match, and Codex debate
+- Runs the task's unit tests (target `Calorie Counter Tests`)
 - Builds the app and runs the simulator for UI verification
 - If the changed UI cannot be reached via normal app flow, autonomously adds a temporary trigger at the start of `Utils.runTest()`, exercises it from the debug menu, screenshots, then removes the trigger before returning
 - Runs an internal review-fix loop (caps at 3 iterations)
@@ -23,7 +24,7 @@ Commit + task completion are the caller's responsibility, executed as the plan's
 
 ## Process
 
-Dispatch a single reviewer subagent with the following instructions. The reviewer handles all three checks in one pass. It does NOT fix code — it only identifies and reports issues.
+Dispatch a single reviewer subagent with the following instructions. The reviewer handles all four checks in one pass. It does NOT fix code — it only identifies and reports issues.
 
 ### Reviewer Subagent Instructions
 
@@ -65,6 +66,12 @@ The reviewer debates with Codex directly to reach consensus on what issues exist
 
 **Important: The reviewer NEVER fixes code. It only debates with Codex to produce an agreed-upon list of real issues.**
 
+**4. Unit Tests**
+- Run the task's unit tests with XcodeBuildMCP (`test`) against the `Calorie Counter Tests` target
+- The unit tests this task added/changed — and any existing tests the change could affect — must pass. A red test is a confirmed issue that goes into the review-fix loop
+- If the test target cannot be built/run (e.g., a worktree without the Xcode project), SKIP this check and note it in the report — same handling as UI verification
+- The reviewer reports failures; it does not fix them
+
 ### Output Format
 
 The reviewer compiles all findings into a single report:
@@ -80,6 +87,9 @@ The reviewer compiles all findings into a single report:
 
 ### 3. Codex Review: PASS / ISSUES
 [List of agreed issues with severity]
+
+### 4. Unit Tests: PASS / ISSUES / SKIPPED
+[Test target, count run, any failures]
 
 ### Recommendation to human: APPROVE / ESCALATE
 [Summary. This is the reviewer subagent's INPUT to the human gate — it is NOT the skill's final verdict. The human sets the verdict in the handoff step below.]
@@ -123,6 +133,7 @@ Commit + task completion belong exclusively to the plan's Step 3, executed by th
 - The reviewer subagent only reports issues; the implementer subagent only writes code; this skill only produces a verdict
 - UI verification requires a Figma URL — check the implementation plan or story-analysis output for the relevant Figma node
 - If the app cannot be built (e.g., worktree without Xcode project), skip UI verification and note it in the report
+- Unit tests run via XcodeBuildMCP (`test`, target `Calorie Counter Tests`); if the target can't be built/run, skip that check and note it
 - For the Codex debate: respond to every issue Codex raises, be willing to debate or concede, keep it simple
 
 ## Red Flags — stop and call `AskUserQuestion`

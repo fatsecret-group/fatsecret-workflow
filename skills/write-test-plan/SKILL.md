@@ -28,6 +28,8 @@ Use `example-test-plan.csv` (in this skill's directory) as the reference for the
 
 **CSV alternative:** If the project's CLAUDE.md asks for CSV, or QA needs to import the plan into a spreadsheet, emit `test-plan.csv` matching `example-test-plan.csv` instead. HTML is the default; CSV is the explicit-request fallback.
 
+**Unit Test Coverage** is rendered as its own `<table>`, kept separate from the manual QA cases — they are different artifacts (see "Unit Test Coverage" below).
+
 ## Writing Guidelines
 
 ### Test Case Coverage
@@ -62,9 +64,48 @@ Order test cases logically by feature area:
 5. Account/market-specific behavior
 6. Persistence and data integrity
 
-## After Writing
+### Unit Test Coverage
 
-1. Save the test plan to the feature's output directory (see feature-workflow Output Directory rule) as `test-plan.html` (or `test-plan.csv` per the fallback above)
-2. Present a summary to the user: total test cases, coverage areas, any gaps
+Beyond the manual QA cases above, the test plan defines which logic gets **automated unit tests**. Keep this in a **separate section/table** from the manual cases — the two are different artifacts: manual cases are executed by a human against the running app; unit tests are code written alongside the implementation (TDD) and run by `xcodebuildmcp test`.
+
+Identify the **deterministic, non-UI units** worth covering:
+- Pure functions and computed transforms
+- View models / presenters (the logic, not the SwiftUI view)
+- Parsers, serializers, mappers
+- Business rules and validation
+- State-transition logic (flag/counter changes, upgrade-path logic)
+
+For each, record: the unit under test → the key behaviors / boundaries to assert → which Item (from story-analysis) it backs.
+
+**Out of scope:** UI tests and snapshot tests. The unit test target is **`Calorie Counter Tests`** (already present in the project).
+
+This section is the source `writing-plans` reads to decide which task gets which unit tests (TDD, per task).
+
+## Coverage Challenge (Codex devil's advocate) — mandatory
+
+**Type: Rigid gate. Do not skip, do not rationalize past it.** Before the test plan is finalized and written out, the coverage MUST survive an adversarial review by Codex. Run it on the **draft coverage** — both the manual QA cases AND the Unit Test Coverage section — before saving `test-plan.html`:
+
+1. Open a Codex session with `mcp__codex__codex`, configured `cwd` = project root, `sandbox: read-only`, `approval-policy: never`.
+2. Frame Codex as a **picky devil's advocate** whose only job is to attack the coverage. Send it the draft cases + unit-test scope plus the story-analysis / design inputs, and ask it to find:
+   - **Manual QA gaps**: missing entry points, account/market dimensions, edge/empty states, upgrade-path scenarios, navigation/persistence holes
+   - **Unit-test gaps**: logic branches with no assertion, untested boundary values, error paths, false confidence (a "covered" unit whose real risk lives elsewhere)
+   - **Wrong/redundant cases**: cases that are duplicated or assert the wrong thing
+3. Evaluate each challenge with project context — accept real gaps, push back (with reasoning) on speculative ones. Iterate via `mcp__codex__codex-reply`; keep the thread.
+4. Fold the agreed gaps into the coverage. Only then proceed to write `test-plan.html`.
+
+If `mcp__codex__codex` is unavailable, stop and ask the user to enable it — do NOT finalize the test plan by skipping this gate.
+
+| Thought | Reality |
+|---|---|
+| "Coverage already looks complete" | Then Codex finds nothing and the gate costs one round. Run it. |
+| "Auto mode means I can skip this" | Auto mode does not disable a Rigid gate. |
+| "This feature is small" | Small features have the cheapest, fastest challenge. Run it anyway. |
+
+## Finalize & Hand Off
+
+Reach this point only after the mandatory **Coverage Challenge** above has resolved against the draft coverage.
+
+1. Save the test plan (with the Unit Test Coverage section) to the feature's output directory (see feature-workflow Output Directory rule) as `test-plan.html` (or `test-plan.csv` per the fallback above)
+2. Present a summary to the user: total manual cases, unit-test units covered, coverage areas, and the gaps the Codex challenge surfaced + how they were resolved
 3. Ask user to review and approve before proceeding to `writing-plans`
-4. The approved test plan becomes the acceptance criteria for implementation
+4. The approved test plan becomes the acceptance criteria for implementation — its Unit Test Coverage section drives the per-task TDD steps in `writing-plans`

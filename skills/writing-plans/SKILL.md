@@ -11,7 +11,7 @@ Write comprehensive implementation plans assuming the engineer has zero context 
 
 Assume they are a skilled developer, but know almost nothing about our toolset or problem domain.
 
-**Project reality — no automated tests.** Our project currently has no unit test or UI test infrastructure. During implementation, the engineer iterates with `xcodebuildmcp` (`build_sim`) until the code compiles cleanly. All downstream verification is owned by `review-task`. Plans MUST NOT prescribe write-failing-test steps, UI-test-writing steps, or standalone build steps.
+**Project reality — unit tests via TDD, no UI tests.** The project has a unit test target (`Calorie Counter Tests`). Tasks that touch **testable logic** (pure functions, view models, parsers, business rules, state transitions) follow **TDD**: write a failing unit test first, then implement until it passes — iterating with `xcodebuildmcp` (`build_sim` to compile, `test` to run) until both compile cleanly and tests are green. UI tests and snapshot tests stay out of scope; pure-UI tasks with no testable logic keep the plain Implement step. The unit-test scope for a feature comes from the **Unit Test Coverage** section of its `test-plan.html`. All downstream verification (including re-running the task's tests) is owned by `review-task`. Plans MUST NOT prescribe UI-test-writing steps or standalone build steps.
 
 **Commit timing.** Each task MUST end with an explicit "Commit & mark complete" step. The plan is the single source of truth for when commits happen.
 
@@ -80,7 +80,8 @@ If a UI task has no corresponding Figma node, stop and surface this to the user 
 ## Bite-Sized Task Granularity
 
 **Each step is one action (a few minutes, except Implement which can be longer):**
-- "Implement the component / modify the file" - step (includes iterating with `xcodebuildmcp` until it compiles)
+- **Tasks with testable logic — TDD:** "Write the failing unit test(s)" - step (the assertions from the test plan's Unit Test Coverage, in the `Calorie Counter Tests` target), then "Implement until the test passes" - step (iterate with `xcodebuildmcp`: `build_sim` to compile, `test` to run, until green)
+- **Pure-UI / no-logic tasks:** "Implement the component / modify the file" - step (includes iterating with `xcodebuildmcp` until it compiles)
 - "Invoke review-task" - step (produces verdict only)
 - "Commit & mark complete" - step (runs after APPROVED verdict)
 
@@ -124,14 +125,22 @@ Each task is a `.task-card` with the same three-step shape (Implement → Review
 </p>
 
 <p><span class="field-label">Step 1 — Implement:</span></p>
-<pre><code>// Complete code for the file or modification — no TBDs, no "similar to above".
+<p><strong>TDD (tasks with testable logic):</strong> write the failing unit test first (Step 1a), then the implementation (Step 1b). Run the test with <code>xcodebuildmcp</code> (<code>test</code>) and confirm it fails for the right reason before implementing. If the type/API under test doesn't exist yet, add the minimal stub (empty type or method signature) so the test <em>compiles and fails on the assertion</em> — a missing-symbol compile error is not a valid red. Pure-UI / no-logic tasks skip straight to the implementation block.</p>
+<pre><code>// Step 1a — failing unit test (Calorie Counter Tests target). Actual XCTest, no placeholders.
+final class SomeViewModelTests: XCTestCase {
+    func test_total_sumsEntries() {
+        XCTAssertEqual(SomeViewModel(entries: [1, 2]).total, 3)
+    }
+}
+</code></pre>
+<pre><code>// Step 1b — implementation until the test passes — no TBDs, no "similar to above".
 struct SomeView: View {
     var body: some View {
         Text("Hello")
     }
 }
 </code></pre>
-<p><strong>For UI tasks:</strong> before writing or adjusting visual values above, invoke <code>fatsecret-workflow:figma-driven-implementation</code> with the nodeIds in the Files row — it queries Figma per component and is the source of truth for visual values; reconcile the code block against its output before compiling (see "UI Tasks: Figma Integration"). During implementation, iterate with <code>xcodebuildmcp</code> (<code>build_sim</code> on the session's default scheme/simulator) until it compiles cleanly; fix any new warnings. No simulator run, no UI inspection, no test scaffolding — all of that is <code>review-task</code>'s job in Step 2.</p>
+<p><strong>For UI tasks:</strong> before writing or adjusting visual values above, invoke <code>fatsecret-workflow:figma-driven-implementation</code> with the nodeIds in the Files row — it queries Figma per component and is the source of truth for visual values; reconcile the code block against its output before compiling (see "UI Tasks: Figma Integration"). During implementation, iterate with <code>xcodebuildmcp</code> (<code>build_sim</code> on the session's default scheme/simulator to compile, and for TDD tasks <code>test</code> until the unit tests are green) until it compiles cleanly; fix any new warnings. No simulator run, no UI inspection — that is <code>review-task</code>'s job in Step 2.</p>
 
 <p><span class="field-label">Step 2 — Review:</span> Invoke <code>fatsecret-workflow:review-task</code> on this task's changes. It returns <code>APPROVED</code> or <code>ESCALATED</code>. Proceed to Step 3 only on <code>APPROVED</code>; on <code>ESCALATED</code>, surface the issues to the human and wait for instructions.</p>
 
@@ -159,7 +168,7 @@ Every step must contain the actual content an engineer needs. These are **plan f
 - Exact commands with expected output
 - DRY, YAGNI
 - Commit + `TaskUpdate(completed)` only in the task's Step 3, after `review-task` returns APPROVED
-- No test-writing steps — project has no unit test or UI test infrastructure
+- Tasks with testable logic include a TDD unit-test step (Step 1a failing test → Step 1b implement, target `Calorie Counter Tests`); UI tests and snapshot tests stay out of scope
 - No standalone Build step — compile verification is part of Step 1 Implement
 - UI tasks list Figma nodeIds in the Files section and invoke `figma-driven-implementation` in Step 1
 

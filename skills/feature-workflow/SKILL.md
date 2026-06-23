@@ -26,7 +26,7 @@ Before starting, verify that required skills are available:
 If superpowers skills are missing, tell the user:
 > "This workflow requires the superpowers plugin. Install it with: `claude plugins add superpowers-marketplace/superpowers`"
 
-**Note on testing:** All per-task verification is owned by `review-task`. During implementation, the engineer iterates with `xcodebuildmcp` to confirm the code compiles — that's part of implementation itself.
+**Note on testing:** Tasks with testable logic are built with **TDD** — the engineer writes a failing unit test first, then implements until it passes, iterating with `xcodebuildmcp` (`build_sim` to compile, `test` to run). The unit-test scope for the feature is defined in the test plan's **Unit Test Coverage** section. Per-task verification — including re-running the task's unit tests — is owned by `review-task`. UI tests and snapshot tests are out of scope; the unit test target is `Calorie Counter Tests`.
 
 ## Workflow at a Glance
 
@@ -34,7 +34,7 @@ If superpowers skills are missing, tell the user:
 Step 1: Introduction        — collect input, confirm output folder
 Step 2: Story Analysis      — understand stories + explore code [skip if no stories]
 Step 3: Design Exploration  — architecture decisions, implementation approach
-Step 4: Test Plan           — define acceptance criteria
+Step 4: Test Plan           — manual QA + unit-test coverage; mandatory Codex coverage challenge
 Step 5: Implementation Plan — detailed task breakdown (plan defines each task's steps)
 Step 6: Build               — execute each task per the plan; review-task is the verdict gate
 Step 7: Verify & Ship       — final verification + finish branch
@@ -97,9 +97,9 @@ Present this to the user and collect input:
 >
 > **Analyze** → understand stories, explore code for hidden impacts
 > **Design** → architecture decisions and implementation approach
-> **Test Plan** → define acceptance criteria
+> **Test Plan** → define acceptance criteria + unit-test coverage (Codex coverage challenge)
 > **Plan** → detailed implementation steps per task
-> **Build** → implement, build & run in simulator, review against Figma, commit
+> **Build** → implement (TDD unit tests), build & run in simulator, review against Figma, commit
 >
 > To get started — do you have **Shortcut Stories** (Story IDs or Iteration ID) or **Figma designs** to share?
 
@@ -158,6 +158,8 @@ Save output to `docs/plans/<feature-name>/design.html`.
 
 Uses the story-analysis output (if available) and design exploration output as input.
 
+The test plan defines both the **manual QA acceptance cases** and a separate **Unit Test Coverage** section (the deterministic, non-UI units that get TDD unit tests in Step 6; target `Calorie Counter Tests`, no UI/snapshot tests). Before the plan is finalized, `write-test-plan` runs a **mandatory Codex devil's-advocate coverage challenge** over the whole draft (manual + unit) — this gate is not skippable.
+
 Save output to `docs/plans/<feature-name>/test-plan.html`.
 
 Wait for human confirmation before proceeding.
@@ -214,6 +216,8 @@ Verify coverage against implementation. Informational — does not block.
 
 **Skill**: `superpowers:verification-before-completion`
 **Condition**: Always.
+
+Run the full unit-test suite (`xcodebuildmcp` `test`, target `Calorie Counter Tests`) as part of this verification — the per-task gates already ran each task's tests; this confirms the whole suite is green before shipping. If the target can't be built/run (e.g., a non-app worktree), surface that rather than silently skipping.
 
 ### 7c. Finish branch
 
