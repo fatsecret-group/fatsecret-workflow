@@ -83,6 +83,7 @@ If a UI task has no corresponding Figma node, stop and surface this to the user 
 - **Tasks with testable logic — TDD:** "Write the failing unit test(s)" - step (the assertions from the test plan's Unit Test Coverage, in the `Calorie Counter Tests` target), then "Implement until the test passes" - step (iterate with `xcodebuildmcp`: `build_sim` to compile, `test` to run, until green)
 - **Pure-UI / no-logic tasks:** "Implement the component / modify the file" - step (includes iterating with `xcodebuildmcp` until it compiles)
 - "Invoke review-task" - step (produces verdict only)
+- "Capture codebase knowledge" - step (after APPROVED, before commit; conditional — see Task Structure Step 2.5)
 - "Commit & mark complete" - step (runs after APPROVED verdict)
 
 ## Plan Document Format
@@ -113,7 +114,7 @@ When invoked by `fatsecret-workflow:feature-workflow`, write the plan as **self-
 
 ## Task Structure
 
-Each task is a `.task-card` with the same three-step shape (Implement → Review → Commit). Give the card a `id` so the TOC can link to it. When you reference a task anywhere (TOC, cross-links, commit message), use its descriptive title alongside the code — e.g. "Task 3 (Target screen wiring)", never a bare "Task 3".
+Each task is a `.task-card` with the same shape (Implement → Review → Capture knowledge → Commit). Give the card a `id` so the TOC can link to it. When you reference a task anywhere (TOC, cross-links, commit message), use its descriptive title alongside the code — e.g. "Task 3 (Target screen wiring)", never a bare "Task 3".
 
 ```html
 <div class="task-card">
@@ -142,7 +143,9 @@ struct SomeView: View {
 </code></pre>
 <p><strong>For UI tasks:</strong> before writing or adjusting visual values above, invoke <code>fatsecret-workflow:figma-driven-implementation</code> with the nodeIds in the Files row — it queries Figma per component and is the source of truth for visual values; reconcile the code block against its output before compiling (see "UI Tasks: Figma Integration"). During implementation, iterate with <code>xcodebuildmcp</code> (<code>build_sim</code> on the session's default scheme/simulator to compile, and for TDD tasks <code>test</code> until the unit tests are green) until it compiles cleanly; fix any new warnings. No simulator run, no UI inspection — that is <code>review-task</code>'s job in Step 2.</p>
 
-<p><span class="field-label">Step 2 — Review:</span> Invoke <code>fatsecret-workflow:review-task</code> on this task's changes. It returns <code>APPROVED</code> or <code>ESCALATED</code>. Proceed to Step 3 only on <code>APPROVED</code>; on <code>ESCALATED</code>, surface the issues to the human and wait for instructions.</p>
+<p><span class="field-label">Step 2 — Review:</span> Invoke <code>fatsecret-workflow:review-task</code> on this task's changes. It returns <code>APPROVED</code> or <code>ESCALATED</code>. Proceed to Step 2.5 only on <code>APPROVED</code>; on <code>ESCALATED</code>, surface the issues to the human and wait for instructions.</p>
+
+<p><span class="field-label">Step 2.5 — Capture codebase knowledge:</span> After <code>review-task</code> returns <code>APPROVED</code> and before committing, look back over this task's code-review conversation — the Codex debate, the review-fix loop, and the human gate — and list every <em>correction the human made</em>: each place the reviewer, Codex, or your first attempt was wrong about how this codebase actually works. Filter that list through the <code>docs/plans/CODEBASE-KNOWLEDGE.md</code> "Trust Contract" inclusion test — keep ONLY which-of-many-is-canonical (disambiguation), non-local invariants, "don't do X" traps, runtime/timing behaviour, and intent→entry routing; drop anything <code>grep</code> gives in one shot (signatures, file/dir locations), module internals, behavioural rules (those live in <code>CLAUDE.md</code>), and one-off fixes (git log owns those). <strong>In the same pass, reconcile against existing entries:</strong> check whether anything you learned this task — the code's actual behaviour, or a human correction — <em>contradicts</em> a line already in <code>CODEBASE-KNOWLEDGE.md</code> (stale / now-wrong / superseded). Per the file's own Trust Contract ("If the code disagrees, the code wins — fix this file"), raise every such conflict to the human and propose the fix or removal. If anything passes the filter (additions) <strong>or any conflict was found</strong>, show the proposed entries and conflicts and <strong>ask the human</strong> before touching <code>docs/plans/CODEBASE-KNOWLEDGE.md</code> — add, correct, or delete only on an explicit yes. If nothing surfaced, nothing passes the filter, and no conflict exists, skip silently. This step never blocks the commit.</p>
 
 <div class="gate">
 Step 3 — Commit &amp; mark complete (only reachable when Step 2 returned <code>APPROVED</code>):
@@ -168,6 +171,7 @@ Every step must contain the actual content an engineer needs. These are **plan f
 - Exact commands with expected output
 - DRY, YAGNI
 - Commit + `TaskUpdate(completed)` only in the task's Step 3, after `review-task` returns APPROVED
+- Between Review and Commit, run the "Capture codebase knowledge" step (Step 2.5): list the human's code-review corrections, filter by `CODEBASE-KNOWLEDGE.md`'s Trust Contract, reconcile against existing entries (raise any line the latest context contradicts — code wins), and ask before recording/correcting — never auto-write, never block the commit
 - Tasks with testable logic include a TDD unit-test step (Step 1a failing test → Step 1b implement, target `Calorie Counter Tests`); UI tests and snapshot tests stay out of scope
 - No standalone Build step — compile verification is part of Step 1 Implement
 - UI tasks list Figma nodeIds in the Files section and invoke `figma-driven-implementation` in Step 1

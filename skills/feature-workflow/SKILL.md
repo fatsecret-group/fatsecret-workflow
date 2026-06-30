@@ -197,6 +197,7 @@ Invariants Step 6 enforces on top of the plan:
 
 - `review-task` produces the `APPROVED` verdict that unlocks the task's final commit + `TaskUpdate(completed)` step.
 - On `ESCALATED`, halt the task and surface the issues to the human.
+- After `review-task` returns `APPROVED` and before the task's commit step, run the plan's "Capture codebase knowledge" step (`writing-plans` Step 2.5): review this task's code-review conversation, list the human's corrections, filter them through `docs/plans/CODEBASE-KNOWLEDGE.md`'s Trust Contract, and reconcile the latest context against existing entries — raising any line it contradicts (Trust Contract: "code wins — fix this file"). Only if something qualifies or a conflict was found, ask the human whether to add, correct, or remove entries (write only on an explicit yes). It never blocks the commit and skips silently when nothing qualifies. This is the write-side counterpart to "Codebase Knowledge (read first)".
 - Commit + `TaskUpdate(completed)` happen exclusively in the task's final plan step.
 - The review-fix loop (iterate on issues until APPROVED, capped at 3 rounds before ESCALATED) lives inside `review-task`.
 
