@@ -20,6 +20,10 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 **Save plans to:** `docs/plans/<feature-name>/implementation-plan.html` when invoked by `fatsecret-workflow:feature-workflow` (self-contained HTML — see "Plan Document Format" below). Otherwise `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md` (markdown — the superpowers standalone default).
 - (User preferences for plan location/format override these defaults)
 
+## Codebase Knowledge (read first)
+
+If `docs/plans/CODEBASE-KNOWLEDGE.md` exists, read it before mapping File Structure or decomposing tasks — the codebase map (entry points, state ownership, navigation, networking, UI/localization/analytics conventions, build/tooling diagnostics; task index at the top). Honor it while planning (don't restate it in the plan); consult it before exploring or when unsure how something is done here. This is the read-side counterpart to Step 2.5 ("Capture codebase knowledge"). When invoked via `fatsecret-workflow:feature-workflow`, this overlaps with that skill's "read first" before Step 5 — reading again here is harmless.
+
 ## Scope Check
 
 If the spec covers multiple independent subsystems, it should have been broken into sub-project specs during story-analysis / scoping. If it wasn't, suggest breaking this into separate plans — one per subsystem. Each plan should produce working, testable software on its own.
