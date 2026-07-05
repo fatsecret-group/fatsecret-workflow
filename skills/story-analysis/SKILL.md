@@ -58,13 +58,15 @@ Fetch the Stories the user provided — these are the Stories you are analyzing:
 After fetching all Stories, scan every Story description for Figma URLs (patterns like `figma.com/board/...`, `figma.com/design/...`, `figma.com/file/...`). Collect all unique URLs found.
 
 1. If Figma URLs are found in Story descriptions: present them to the user grouped by Story for confirmation, then fetch design screenshots and context via Figma MCP for each confirmed URL
-2. If NO Figma URLs are found anywhere (neither in Stories nor provided by the user) BUT the Stories describe UI elements (screens, banners, popups, etc.): ask the user whether Figma designs exist for this feature. Do not proceed past Step 3 without design coverage for UI-heavy features
+2. If NO Figma URLs are found anywhere (neither in Stories nor provided by the user) BUT the Stories describe UI elements (screens, banners, popups, etc.): ask the user whether Figma designs exist for this feature. Default is to block: do not proceed past the intent-extraction step (Step 3 below) without design coverage for UI-heavy features — unless the user explicitly grants a **design waiver**. Record the waiver and its assumptions in the output; waived UI gets no pixel-match in `review-task`
 3. Combine user-provided Figma URLs (if any) with those extracted from Stories — deduplicate by fileKey+nodeId
 
 This step is critical because product teams often embed design links directly in Story descriptions rather than providing them separately.
 
 **Step 2 — Search for relevant PAST Stories (separate from Step 1)**
 This is a **different operation** from Step 1. Step 1 fetched the *current* Stories you are analyzing. Step 2 searches Shortcut for *other, previously completed* Stories that provide historical context — prior implementations, related features, past decisions that affect this work.
+
+**When to run it:** run this search when the work modifies existing flows, replaces/migrates a subsystem, touches analytics/tracking, or uses domain terms with ambiguous history. For an isolated greenfield change, skip it and record `Past-story search skipped: isolated change` in the output's Overview. When unsure, run it.
 
 Why this matters: past Stories reveal what was already tried, what constraints exist, and what related systems were touched. Without this context, you risk duplicating existing work, contradicting past decisions, or missing dependencies that only show up in historical context.
 
@@ -77,7 +79,7 @@ Why this matters: past Stories reveal what was already tried, what constraints e
 3. Present the search results as a concise list (Story ID, title, state) grouped by keyword
 4. Let the user select which past Stories are relevant — fetch full details for selected ones and incorporate their context into subsequent analysis steps
 
-> **Do not confuse Step 1 with Step 2.** Fetching the current iteration's stories (Step 1) is not the same as searching for historical context (Step 2). Even if you already called Shortcut MCP in Step 1, you must still perform the keyword search in Step 2. They use different API calls for different purposes.
+> **Do not confuse Step 1 with Step 2.** Fetching the current iteration's stories (Step 1) is not the same as searching for historical context (Step 2). Having called Shortcut MCP in Step 1 does not count as having done Step 2 — they use different API calls for different purposes. When Step 2's trigger applies, perform the keyword search; when it doesn't, record the skip explicitly.
 
 **Step 3 — Extract intent**
 - From each Story: what is being added, changed, or removed
@@ -120,7 +122,7 @@ Present to the user:
 - Related existing behavior that may need to change or be tested alongside the new work
 - **User segment impact**: How each relevant segment is affected
 - Inconsistencies between Stories and Figma designs (if any)
-- **Missing designs**: If any UI element referenced in Stories cannot be found in the provided Figma designs, explicitly flag it as missing and ask the user for the design. Do NOT proceed with incomplete design coverage.
+- **Missing designs**: If any UI element referenced in Stories cannot be found in the provided Figma designs, explicitly flag it as missing and ask the user for the design. Do NOT proceed with incomplete design coverage unless the user grants an explicit design waiver (recorded per Step 1b).
 
 Then proceed to the Confirmation Gate to resolve ambiguities interactively.
 
@@ -168,7 +170,7 @@ The document must contain these sections (mapped to HTML headings + cards):
   - **Summary**: What to do and why
   - **Preconditions**: What existing logic or other Items this depends on
   - **Scope of Impact**: new functionality to add / existing to modify (human-confirmed) / existing to remove (human-confirmed)
-  - **Key UI Specs**: (if Figma available, list design parameters)
+  - **Key UI Specs**: (if Figma available) the Figma file/node reference(s) plus interaction intent and states. Do NOT copy pixel values (dimensions, colors, fonts) into this document — `figma-driven-implementation` extracts them fresh per component at implementation time; values copied here go stale and conflict with that extraction.
   - **Event Tracking**: (only if this Item has tracking requirements) either the confirmed Avo event(s) + properties + trigger conditions (when the Avo branch is ready), or an explicit note that tracking is deferred to placeholders until the Avo branch is merged — list the event names that need TODO placeholders so implementers know what to stub
   - **Upgrade Impact**: how this Item behaves for existing users updating the app — initial flag states, reachability, edge cases
   - **Test Considerations**: complete test thinking for this Item, explicitly including upgrade scenarios
@@ -180,4 +182,4 @@ The document must contain these sections (mapped to HTML headings + cards):
 - The output document must be self-contained: a reader should understand the full scope without referring back to the original Stories
 - Every Item MUST include an **Upgrade Impact** section — even if the answer is "no impact on existing users"
 - If tracking requirements exist (Step 5b found any), the Avo branch readiness question is mandatory and every affected Item MUST carry an explicit **Event Tracking** field distinguishing real tracking code vs placeholder TODOs. This distinction is what tells the downstream writing-plans / engineer which to emit.
-- The **Ambiguities & Open Questions** section is mandatory — if you found zero ambiguities, you didn't look hard enough
+- The **Ambiguities & Open Questions** section is mandatory — when nothing remains open, write `None — checked terminology, user segments, upgrade paths, and Figma/story consistency` rather than inventing filler questions. Fabricated ambiguities are worse than an honest "none": they bury the real ones.

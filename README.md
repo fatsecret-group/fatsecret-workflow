@@ -47,7 +47,7 @@ See [superpowers](https://github.com/obra/superpowers) for other platform instru
 
 ### Optional MCP servers
 
-Some skills integrate with external tools via MCP. **Skills gracefully degrade if their MCP server is not configured** — you only need to install the ones you use.
+Some skills integrate with external tools via MCP. **In the full feature-workflow, the Codex, Figma, and XcodeBuildMCP gates are required** — the workflow stops and asks rather than silently skipping them, unless a skill explicitly defines a fallback. Install the servers for the skills you use.
 
 | MCP Server | Used by | Purpose |
 |------------|---------|---------|
