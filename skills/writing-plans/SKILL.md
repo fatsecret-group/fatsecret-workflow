@@ -45,13 +45,12 @@ This does NOT apply to routine decisions, small features, or obvious choices. Us
 **Full `implementation-plan.html` only when any trigger holds:**
 - destructive migration (removing/replacing an existing subsystem)
 - multiple subsystems touched
-- more than ~5 tasks
 - tasks will be dispatched to subagents
 - the user asks for one
 
 State which output you chose and why in one sentence before writing it.
 
-(Standalone use outside `fatsecret-workflow:feature-workflow`: save a markdown plan to `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md` — the superpowers default. User preferences for location/format override all defaults.)
+(Standalone use outside `fatsecret-workflow:feature-workflow`: save a markdown plan to `docs/plans/YYYY-MM-DD-<feature-name>.md`. User preferences for location/format override all defaults.)
 
 ## File Structure
 
@@ -149,7 +148,7 @@ Fix issues inline and move on. If a spec requirement has no task, add the task.
 Say: *"Execution checklist appended to `design.html`"* (or *"Plan saved to `<path>`"*) — *"Ready for Step 6 — I'll execute each task's steps in order; `review-task` gates every commit."* Then return control to feature-workflow; do NOT offer alternative execution modes.
 
 **When invoked standalone**, offer two options:
-1. **Inline (recommended)** — Execute tasks in this session using `superpowers:executing-plans`.
-2. **Subagent-Driven** — Dispatch a fresh subagent per task using `superpowers:subagent-driven-development`.
+1. **Inline (recommended)** — Execute the tasks in this session: review the plan critically first and raise concerns before starting, then follow each task's steps exactly in order, stopping to ask when blocked instead of guessing.
+2. **Subagent-Driven** — a full-plan trigger: if the output was a checklist, upgrade it to a full plan first. Dispatch a fresh subagent per task with **only the task's Implement step** (subagents never invoke `review-task`, ask the human, or commit — feature-workflow Invariant 1); verify each result against the task's acceptance point yourself by reading the diff — never trust a bare "success" report.
 
 In either standalone mode, `review-task` is still the only path to commit and mark tasks complete.

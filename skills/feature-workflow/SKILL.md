@@ -24,6 +24,15 @@ These override anything else in this workflow. Re-read this block whenever you r
 
 Before Step 2 (Analysis), Step 3 (Design), Step 5 (Execution Plan), and Step 6 (Build), read `docs/plans/CODEBASE-KNOWLEDGE.md` if it exists — the codebase map (entry points, state ownership, navigation, networking, UI/localization/analytics conventions, build/tooling diagnostics; task index at the top). Honor it during the relevant step (don't restate it in artifacts); consult it before exploring or when unsure how something is done here.
 
+## Delegation — orchestrate, don't do everything inline
+
+When the model running this workflow is a top-tier reasoning model and the harness supports subagents, that model's **context is the scarcest resource in the workflow** — it must survive all seven steps (compaction is the enemy; see Invariant 5). Delegate work below its pay grade; keep only decisions, gate states, and human confirmations inline. On a harness without subagents (or a lower-tier session model), run everything inline — this section is then inert; the Invariants are not.
+
+- **Delegate DOWN: work whose spec already exists.** Read-only exploration in Steps 2–3 (the grounding rule's file verification, historical story search, hidden-impact sweeps, the grilling's "facts are looked up" legwork) — fan out read-only agents; only conclusions + `file:line` citations return to the orchestrator's context, never file dumps. In Step 6, mechanical execution of self-contained tasks (boilerplate, batch edits, tests whose assertions the plan already names). Where the harness offers per-agent model selection, use cheaper/lower-effort agents for mechanical work; when unsure, inherit the session model.
+- **NEVER delegate:** anything that talks to the human (grilling, gates, `AskUserQuestion`), design decisions and their synthesis, review verdict handling, and commits (Invariant 1: subagents never commit).
+- **Implementation dispatch (Step 6)** requires the full plan (existing trigger in Step 5) — and dispatches **only the task's Implement step**, never the full task text with its Review/Commit steps. The dispatch prompt must state: do not invoke `review-task`, do not ask the human, do not commit or `TaskUpdate` — implement, run the task's tests, and return a diff summary + test output. Pass *paths* to `design.html` / `CODEBASE-KNOWLEDGE.md`, don't re-summarize them into the prompt. Before invoking `review-task`, verify the files the subagent actually touched ⊆ the task's declared Files — the same discipline as the staged ⊆ Files commit rule. Review fixes may be re-dispatched, but the verdict, the human gate, and the commit stay with the orchestrator.
+- **Parallel dispatch** only for tasks with disjoint Files lists, and only with each subagent in its own worktree — parallel edits in the shared tree are forbidden: `review-task`'s diff and the post-commit clean-tree check cannot isolate one task's changes from another task's uncommitted ones. After the parallel tasks have each passed review and committed, the orchestrator integrates the worktree branches back into the feature branch **serially** — each integration is itself a commit under Invariant 1 (same-turn human OK), and the combined result gets a full test run before proceeding. Integrations must preserve the reviewed commits unchanged; if one requires conflict resolution or any content change, treat it as a worktree-changing task — `review-task` before its human-authorized commit (Invariant 2).
+
 ## Prerequisites Check
 
 Before starting, verify that required skills are available:
@@ -31,13 +40,8 @@ Before starting, verify that required skills are available:
 - `fatsecret-workflow:write-test-plan`
 - `fatsecret-workflow:review-task`
 - `fatsecret-workflow:writing-plans`
-- `superpowers:verification-before-completion`
-- `superpowers:finishing-a-development-branch`
 
-If superpowers skills are missing, tell the user:
-> "This workflow requires the superpowers plugin. Install it with: `claude plugins add superpowers-marketplace/superpowers`"
-
-**Note on testing:** Tasks with testable logic are built with **TDD** — the engineer writes a failing unit test first, then implements until it passes, iterating with `xcodebuildmcp` (`build_sim` to compile, `test` to run). The unit-test scope for the feature is defined in the test plan's **Unit Test Coverage** section. Per-task verification — including re-running the task's unit tests — is owned by `review-task`. UI tests and snapshot tests are out of scope; the unit test target is `Calorie Counter Tests`.
+**Note on testing:** Tasks with testable logic are built with **TDD** — the engineer writes a failing unit test first, then implements until it passes, iterating with `xcodebuildmcp` (`build_sim` to compile, `test` to run). Test-quality rules: watch the test fail before making it pass; test observable behavior at the seams the test plan names — never internals or private methods; expected values come from an independent source of truth (a known-good literal, the spec), never recomputed the way the code computes them; one slice at a time — one test, one minimal implementation, repeat. The unit-test scope for the feature is defined in the test plan's **Unit Test Coverage** section. Per-task verification — including re-running the task's unit tests — is owned by `review-task`. UI tests and snapshot tests are out of scope; the unit test target is `Calorie Counter Tests`.
 
 ## Workflow at a Glance
 
@@ -55,14 +59,25 @@ Step 1: Introduction        — collect input, pick track, confirm output folder
 
 ## Lite Track — bug fixes, mechanical refactors, small UI tweaks
 
-Choose this in Step 1 when the work is a bug fix, a mechanical refactor, or a small UI change rather than a new feature — **and only when none of the full-plan triggers apply** (see Step 5): a refactor that is a destructive migration, spans subsystems, or needs more than ~5 tasks is Full Track work no matter how mechanical it feels. No documents are produced (no story-analysis / test-plan / plan file), but **all Invariants still apply** — most importantly the per-task review gate (Invariant 2) and the commit policy (Invariant 1).
+Choose this in Step 1 when the work is a bug fix, a mechanical refactor, or a small UI change rather than a new feature — **and only when the work is genuinely small**: a refactor that is a destructive migration, spans subsystems, or needs more than ~5 tasks is Full Track work no matter how mechanical it feels. No documents are produced (no story-analysis / test-plan / plan file), but **all Invariants still apply** — most importantly the per-task review gate (Invariant 2) and the commit policy (Invariant 1).
 
-1. **Diagnose before touching code (bug fixes).** State the suspected triggering path/layer and confirm it with evidence — a reproduction, a code trace, or logs — before editing. If you cannot confirm which layer fires the behavior, say so and keep investigating; do not fix a hypothesis. (`superpowers:systematic-debugging` is the method.)
+1. **Diagnose before touching code (bug fixes).** State the suspected triggering path/layer and confirm it with evidence — a reproduction, a code trace, or logs — before editing. If you cannot confirm which layer fires the behavior, say so and keep investigating; do not fix a hypothesis. (The **Diagnosis Method** below is the method.)
 2. **Minimal diff.** Fix only what the ticket describes. Never bundle changes to adjacent working code — "while I'm here" is a red flag.
 3. **Task list as the execution contract.** Create harness tasks (`TaskCreate`) for the fix steps — this replaces the plan document, so each task must carry what `review-task` will review against: the exact files it will touch, its acceptance point, its unit-test scope (if there's testable logic), and the Figma nodeId or human-granted waiver for UI changes.
 4. **Gated execution.** Each code task: implement (TDD if there's testable logic; `figma-driven-implementation` if UI) → `review-task` → human gate → commit per the Commit reliability rules in Step 6.
 5. **Destructive changes** follow Invariant 4 (comment-out first, per-item confirmation, separate delete pass).
 6. **Close out.** After the final task's commit, run Step 7b (full-suite verification); if the fix lives on its own branch, also run Step 7c (finish branch). Step 7a does not apply — there is no test plan.
+
+### Diagnosis Method (Lite Track step 1)
+
+Work the phases in order; skip one only when you can justify the skip aloud:
+
+1. **Build a feedback loop first.** Before reading code to build theories, produce a repeatable pass/fail check that goes red on *this* bug and green once fixed. ONE command is the preferred form — a failing unit test at the nearest seam (`Calorie Counter Tests`), a replayed captured payload/trace, or a minimal throwaway harness kept outside the repo (scratchpad); for bugs only observable interactively (UI/device behavior), a scripted simulator run or a written manual repro sequence with a clear pass/fail criterion also qualifies. Non-deterministic bug: raise the reproduction rate (loop the trigger, pin time/RNG/state) until it's debuggable. If you genuinely cannot build a loop, stop and say so, list what you tried, and ask the human for a captured artifact or repro access — do not hypothesise without one.
+2. **Reproduce, then minimise.** Confirm the loop shows the *user's exact symptom* — a nearby different failure means the wrong bug and the wrong fix. Then cut inputs, steps, and config one at a time, re-running the loop after each cut, until every remaining element is load-bearing.
+3. **Hypothesise in plural.** Write 3–5 ranked, falsifiable hypotheses — "if X is the cause, changing Y makes it disappear" — before testing any; a single hypothesis anchors on the first plausible idea. Show the ranking to the human: they often re-rank it instantly.
+4. **Probe one variable at a time.** A breakpoint or debugger beats ten logs; when logs are needed, tag them with a unique prefix (e.g. `[DEBUG-a4f2]`) so cleanup is one grep — never "log everything and grep". Performance bugs: measure a baseline first, then bisect; don't reach for logs.
+5. **Fix at the root, prove it.** Turn the minimised repro into a failing test at a correct seam (red → fix → green), then re-run the original loop. No correct seam = a finding to surface, not a reason to fake one. Three failed fixes means the architecture is the problem — stop and discuss with the human; don't attempt a fourth.
+6. **Clean up.** Grep the debug prefix and strip all instrumentation; state the confirmed root cause in the task's commit message.
 
 ## Output Directory
 
@@ -171,6 +186,23 @@ Save output to `docs/plans/<feature-name>/story-analysis.html`.
 - **With story analysis** (Step 2 completed): Uses story-analysis output as input. Objectives: (1) Propose implementation approaches and architecture decisions for the Items (2) Identify existing code issues that affect this work (3) Design shared components and state management across Items
 - **Without story analysis** (Step 2 skipped): Explore the idea from scratch — understand intent, propose approaches, present design.
 
+**Design grilling — interview before proposing.** On both paths, design starts as a relentless interview, not a proposal:
+
+1. **Load the docs first.** The feature's stories are the spec: re-read the story-analysis output (or the user's raw request when there are no stories), and search Shortcut for related *historical* stories — same epic, module, or feature area — as background: what was shipped, decided, or explicitly rejected before. Cite story IDs when a past decision constrains this design. If Shortcut MCP is unavailable, record "historical search unavailable" in `design.html` and ask the human for relevant past stories instead of silently skipping.
+2. **Facts are looked up, decisions are asked.** Anything answerable from the codebase, the stories, or `docs/plans/CODEBASE-KNOWLEDGE.md` — look it up yourself; never ask the human for it. Genuine decisions (scope, trade-off preferences, UX intent) go to the human **one question at a time, each with your recommended answer**, walking the decision tree branch by branch so dependent decisions are resolved in order.
+3. **Sharpen the language.** Challenge vague or overloaded terms ("you said 'account' — the Customer or the User?"). When the human's claim contradicts the code or a historical story, surface the contradiction with the evidence. Resolved terminology is recorded in `design.html`; a durable codebase-wide fact is proposed for `CODEBASE-KNOWLEDGE.md` (human yes required, as in the Knowledge Delta Check).
+4. **Stress-test with scenarios.** Invent concrete edge-case scenarios that force precision about the boundaries between concepts before any code is designed around them.
+5. **Only then propose 2–3 approaches** with trade-offs and a recommendation. Decisions that are hard to reverse and came from a real trade-off get their rationale recorded against their D-number in `design.html` — a future reader should never wonder "why did they do it this way?".
+
+Do not present a final design until the interview has reached shared understanding — concretely, until every exit criterion holds:
+
+- **Every acceptance point names its verification mechanism** — a unit-test assertion, a Figma nodeId, a manual QA step for the test plan, or a measurable threshold. A criterion nothing can verify is renegotiated now, not discovered at Step 7a.
+- **Behaviors carry concrete input → expected-output examples** (edge and error cases included) from the scenario stress-tests, ready to become test-plan assertions — the human's examples are the independent source of truth TDD asserts against.
+- **A non-goals / out-of-scope list is recorded in `design.html`** — prohibitions are executable; "keep it minimal" is not.
+- **Known goal conflicts have a pre-ranked priority** ("when X conflicts with Y, prefer X"), captured with the relevant D-decision.
+- **Qualitative goals are converted** to a measurable threshold or explicitly marked "no threshold — human judges in QA"; never left as adjectives.
+- **Everything decided in the interview is written into `design.html`.** A decision that lives only in the conversation was not decided — compaction erases it, and Invariant 5 re-anchors on the artifact, not the chat.
+
 Explore the codebase, discuss trade-offs, and present a design to the user. Wait for human confirmation.
 
 **Grounding rule — verify, don't remember.** Every type, file, field, wire format, or claim about existing behavior that appears in the design MUST be verified against the actual codebase before it is presented — open the code and cite the source path in `design.html`. This is the `figma-driven-implementation` discipline applied to code facts: query, don't remember. A design that names a type or API you haven't opened this session is not ready to present. When replacing an existing subsystem, the source implementation is the spec — read and enumerate its guards/branches/semantics before designing the replacement (see `writing-plans` "Migration discipline").
@@ -209,7 +241,7 @@ Uses all prior outputs (story-analysis, design, test plan) as input.
 
 **Default: an Execution Checklist, not a separate document.** For most features, `writing-plans` produces a lightweight checklist appended to `design.html` — one entry per task: title, exact Files (+ Figma nodeId for UI files), the unit tests it owns (from the test plan's Unit Test Coverage), its acceptance point, and the standard Implement → Review → Commit steps. **No code blocks** — implementers read the real files at task time.
 
-**Write a full `implementation-plan.html` only when any trigger holds:** destructive migration; multiple subsystems; more than ~5 tasks; tasks will be dispatched to subagents; the user asks for one.
+**Write a full `implementation-plan.html` only when any trigger holds:** destructive migration; multiple subsystems; tasks will be dispatched to subagents; the user asks for one.
 
 **Folder placement for new files** is confirmed with the human ONCE, as a single batched `AskUserQuestion` (each new file: proposed folder + one-line rationale) — not per file.
 
@@ -260,15 +292,27 @@ Verify implementation coverage against the test plan. **Blocking:** unresolved a
 
 ### 7b. Verify before completion
 
-**Skill**: `superpowers:verification-before-completion`
 **Condition**: Always.
 
-Run the full unit-test suite (`xcodebuildmcp` `test`, target `Calorie Counter Tests`) as part of this verification — the per-task gates already ran each task's tests; this confirms the whole suite is green before shipping. If the target can't be built/run (e.g., a non-app worktree), surface that rather than silently skipping.
+**Evidence before claims.** Run the full unit-test suite fresh (`xcodebuildmcp` `test`, target `Calorie Counter Tests`) and read the output — the per-task gates already ran each task's tests; this confirms the whole suite is green before shipping. Any completion claim ("tests pass", "build succeeds", "bug fixed") is made only after its verification command has run *in this session* with output confirming it — no "should pass", no extrapolating from an earlier run, no trusting a subagent's success report without reading the diff. If the target can't be built/run (e.g., a non-app worktree), surface that rather than silently skipping.
 
 ### 7c. Finish branch
 
-**Skill**: `superpowers:finishing-a-development-branch`
 **Condition**: Always.
+
+With 7b green, determine the base branch (the branch this work forked from — typically `main`; confirm with the human if in doubt), then present exactly these options and execute the choice (merge/push still follow Invariant 1 — the human's same-turn choice is the OK):
+
+> Implementation complete. What would you like to do?
+> 1. Merge back to `<base-branch>` locally
+> 2. Push and create a Pull Request
+> 3. Keep the branch as-is (I'll handle it later)
+> 4. Discard this work
+
+- **1 — Merge:** checkout base → `git pull --ff-only` (a pull that would create a merge commit stops here — surface it and ask) → merge → re-run the test suite on the merged result → only then clean up: worktree first (rules below), then `git branch -d`.
+- **2 — PR:** `git push -u origin <branch>` and open the PR. Keep the worktree — it's needed to iterate on PR feedback.
+- **3 — Keep:** report the branch name and worktree path; touch nothing.
+- **4 — Discard:** list the branch, its commits, and the worktree that will be deleted; require the human to type `discard`; only then run worktree cleanup + `git branch -D`.
+- **Worktree cleanup (options 1 and 4 only):** only remove worktrees under `.worktrees/` or `worktrees/` — ours by provenance. `cd` to the main repo root first, `git worktree remove <path>` then `git worktree prune`, always before deleting the branch. Harness-owned workspaces are left in place (use the harness's exit tool if one exists).
 
 ---
 

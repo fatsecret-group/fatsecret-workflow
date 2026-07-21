@@ -29,21 +29,7 @@ claude plugins marketplace remove fatsecret-group/fatsecret-workflow
 
 ## Prerequisites
 
-This plugin depends on the **superpowers** plugin for core development skills (TDD, planning, debugging, etc.).
-
-Install superpowers first:
-
-```bash
-/plugin install superpowers@claude-plugins-official
-```
-
-Or via custom marketplace:
-```bash
-/plugin marketplace add obra/superpowers-marketplace
-/plugin install superpowers@superpowers-marketplace
-```
-
-See [superpowers](https://github.com/obra/superpowers) for other platform instructions (Cursor, Codex, Gemini CLI, etc.).
+No other plugins are required — the workflow's TDD rules, bug-diagnosis method, completion verification, and branch-finish procedure are built into the skills themselves.
 
 ### Optional MCP servers
 
@@ -53,7 +39,7 @@ Some skills integrate with external tools via MCP. **In the full feature-workflo
 |------------|---------|---------|
 | [Figma MCP](https://github.com/figma/figma-mcp) | `story-analysis`, `figma-driven-implementation`, `review-task` | Design-to-code workflow |
 | [Codex MCP](https://github.com/openai/codex) | `review-task` | AI code review debates |
-| [Shortcut MCP](https://www.npmjs.com/package/@shortcut/mcp) | `story-analysis` | Read stories from Shortcut |
+| [Shortcut MCP](https://www.npmjs.com/package/@shortcut/mcp) | `story-analysis`, `feature-workflow` | Read stories from Shortcut; search historical stories during design grilling |
 | [XcodeBuildMCP](https://github.com/getsentry/XcodeBuildMCP) | `run`, `review-task` | Build, run, UI automation |
 
 <details>
@@ -154,15 +140,3 @@ Requires `OPENAI_API_KEY` environment variable.
 ## Per-project setup
 
 The `run` skill defaults to the first booted simulator and auto-discovers connected devices. Override workspace/scheme/bundle ID in your project's `.claude/skills/run/SKILL.md` if they differ from the defaults.
-
-## Superpowers skills used
-
-The `feature-workflow` skill orchestrates these superpowers skills:
-
-- `superpowers:brainstorming`
-- `superpowers:writing-plans`
-- `superpowers:test-driven-development`
-- `superpowers:verification-before-completion`
-- `superpowers:finishing-a-development-branch`
-
-If any of these are unavailable, the workflow will prompt you to install superpowers.
