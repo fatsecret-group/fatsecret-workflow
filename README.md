@@ -136,6 +136,7 @@ Requires `OPENAI_API_KEY` environment variable.
 | Skill | Description |
 |-------|-------------|
 | `review-task` | Per-task review: spec compliance + UI verification + Codex debate |
+| `validate-test-plan` | Validate a test plan against the implementation — refute-first verdicts per sub-clause; criticality × verifiability routing shrinks the manual-QA list; runtime clauses captured via simulator + Proxyman or explicitly punted |
 
 ## Per-project setup
 

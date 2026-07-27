@@ -40,6 +40,7 @@ Before starting, verify that required skills are available:
 - `fatsecret-workflow:write-test-plan`
 - `fatsecret-workflow:review-task`
 - `fatsecret-workflow:writing-plans`
+- `fatsecret-workflow:validate-test-plan`
 
 **Note on testing:** Tasks with testable logic are built with **TDD** — the engineer writes a failing unit test first, then implements until it passes, iterating with `xcodebuildmcp` (`build_sim` to compile, `test` to run). Test-quality rules: watch the test fail before making it pass; test observable behavior at the seams the test plan names — never internals or private methods; expected values come from an independent source of truth (a known-good literal, the spec), never recomputed the way the code computes them; one slice at a time — one test, one minimal implementation, repeat. The unit-test scope for the feature is defined in the test plan's **Unit Test Coverage** section. Per-task verification — including re-running the task's unit tests — is owned by `review-task`. UI tests and snapshot tests are out of scope; the unit test target is `Calorie Counter Tests`.
 
@@ -286,9 +287,10 @@ Three sub-steps to close out the feature:
 
 ### 7a. Test plan verification [blocking]
 
+**Skill**: `fatsecret-workflow:validate-test-plan`
 **Condition**: Always (Full Track).
 
-Verify implementation coverage against the test plan. **Blocking:** unresolved acceptance gaps stop the workflow here — do not proceed to 7c unless the user explicitly defers a gap (record the deferral and reason in the test plan). For features whose per-task review gates were structurally weak — no Figma AND no unit-testable logic (e.g. backend-integration work) — 7a must include verification against the real backend/integration, or an explicit user waiver.
+Validate implementation coverage against the test plan — refute-first, typed verdicts per sub-clause, runtime/external clauses punted explicitly rather than graded from static reading. **Blocking:** unresolved acceptance gaps stop the workflow here — do not proceed to 7c unless the user explicitly defers a gap (record the deferral and reason in the test plan); each punt-list item needs the human's do-or-waive call. For features whose per-task review gates were structurally weak — no Figma AND no unit-testable logic (e.g. backend-integration work) — 7a must include verification against the real backend/integration (the skill's runtime pass), or an explicit user waiver.
 
 ### 7b. Verify before completion
 
