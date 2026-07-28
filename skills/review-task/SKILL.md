@@ -15,7 +15,7 @@ This skill performs **one review pass per invocation**:
 - Runs the task's unit tests (target `Calorie Counter Tests`)
 - Builds the app and runs the simulator for UI verification
 - If the changed UI cannot be reached via normal app flow, autonomously adds a temporary trigger at the start of `Utils.runTest()`, exercises it from the debug menu, screenshots, then removes the trigger before returning
-- Any check that cannot run is reported as **UNVERIFIED — it never silently passes** (exception: an unavailable Codex MCP is stop-and-ask, not UNVERIFIED — see check 3)
+- Any check that cannot run is reported as **UNVERIFIED — it never silently passes** (exception: an unavailable Codex MCP switches check 3 to the built-in `/code-review` fallback — the adversarial pass still runs, so it is neither UNVERIFIED nor skipped)
 - Returns one of:
   - **`ISSUES`** + the agreed issue list → the caller fixes (fixes only, no commit) and re-invokes this skill. No human gate on this path.
   - **`APPROVED` / `ESCALATED`** — only after the mandatory human gate, when the pass is clean.
@@ -55,7 +55,7 @@ The reviewer debates with Codex directly to reach consensus on what issues exist
 **Step 3a: Send to Codex**
 - Use `mcp__codex__codex` to send the diff and task intent
 - Ask Codex to review for: bugs, logic errors, edge cases, missing error handling, style issues
-- If `mcp__codex__codex` is unavailable, stop and ask the user to enable it — do not skip the debate and do not downgrade it to UNVERIFIED
+- **Codex unavailable → internal fallback, not a stop**: run the same review via Claude Code's built-in `/code-review` skill over the task's diff. Evaluate its findings with the same agree/disagree rigor as 3b (there is no reply thread — the caller's judgment replaces the debate loop), and record in the review report that the pass ran on the internal fallback. The adversarial pass itself is never skipped and never downgraded to UNVERIFIED.
 
 **Step 3b: Evaluate each issue Codex raises**
 - **Agree**: If the issue is valid, record it as a confirmed issue

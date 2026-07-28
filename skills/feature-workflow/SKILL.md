@@ -35,14 +35,16 @@ When the model running this workflow is a top-tier reasoning model and the harne
 
 ## Prerequisites Check
 
-Before starting, verify that required skills are available:
-- `fatsecret-workflow:story-analysis`
-- `fatsecret-workflow:write-test-plan`
-- `fatsecret-workflow:review-task`
-- `fatsecret-workflow:writing-plans`
-- `fatsecret-workflow:validate-test-plan`
+Run this at Step 1 and present **one MCP readiness table** to the user before proceeding. (The sub-skills ship in this plugin — they need no availability check.) Startup detection is early warning, not a guarantee — an MCP alive now can be gone by Step 6, so the per-step preflights still own the real failure handling.
 
-**MCP**: the `testsecret` server (TestSecret, the team's authoritative case library) backs the Step 4 case upload and the Step 7a result write-back. If it is unreachable at those steps, defer the upload/write-back with an explicit note to the user — never silently skip, and never block the rest of the workflow on it.
+**Required MCPs** (missing → report at Step 1; the user either fixes it now or explicitly accepts failing later at the step that needs it):
+- `xcodebuildmcp` — TDD in Step 6, per-task test runs in `review-task`, the 7b full-suite gate
+- `figma` — only when the feature has UI work / Figma links (story-analysis, figma-driven-implementation, review-task UI verification)
+
+**Optional MCPs** (missing → note it in the table and apply the named fallback; never block):
+- `codex` — external peer reviewer. Fallback: `review-task`'s debate runs via Claude Code's built-in `/code-review` skill; `write-test-plan`'s coverage challenge runs via a fresh-context subagent. The adversarial gates themselves are NOT optional — only who plays the adversary changes.
+- `proxyman` — runtime network capture in `validate-test-plan` Phase 3. Without it, R cases needing capture stay PUNTED to manual QA.
+- `testsecret` — TestSecret, the authoritative case library: Step 4 case upload + Step 7a result write-back. Unreachable → defer with an explicit note to the user, never silently skip. **Not configured at all → offer to set it up** with the setup guide (https://claude.ai/code/artifact/656220b8-5cc5-46de-8880-e330839cbb62): the user creates a token in the TestSecret web UI (Settings → API tokens, shown once), then `claude mcp add testsecret --transport http <mcp-url> --header "Authorization: Bearer <token>"`; the guide also covers verification and the common failures (proxy blocks the bare IP — use the AWS hostname; hostname rotates when the instance reboots).
 
 **Note on testing:** Tasks with testable logic are built with **TDD** — the engineer writes a failing unit test first, then implements until it passes, iterating with `xcodebuildmcp` (`build_sim` to compile, `test` to run). Test-quality rules: watch the test fail before making it pass; test observable behavior at the seams the test plan names — never internals or private methods; expected values come from an independent source of truth (a known-good literal, the spec), never recomputed the way the code computes them; one slice at a time — one test, one minimal implementation, repeat. The unit-test scope for the feature is defined in the test plan's **Unit Test Coverage** section. Per-task verification — including re-running the task's unit tests — is owned by `review-task`. UI tests and snapshot tests are out of scope; the unit test target is `Calorie Counter Tests`.
 
@@ -54,7 +56,7 @@ Step 1: Introduction        — collect input, pick track, confirm output folder
   └─ Full Track:
      Step 2: Story Analysis      — understand stories + explore code [skip if no stories]
      Step 3: Design Exploration  — architecture decisions, grounded in real code
-     Step 4: Test Plan           — manual QA + unit-test coverage; mandatory Codex coverage challenge
+     Step 4: Test Plan           — manual QA + unit-test coverage; mandatory adversarial coverage challenge
      Step 5: Execution Plan      — execution checklist (default) or full implementation plan (when triggered)
      Step 6: Build               — execute each task; review-task gates every commit
      Step 7: Verify & Ship       — blocking test-plan verification + finish branch
@@ -139,7 +141,7 @@ Present this to the user and collect input:
 >
 > **Analyze** → understand stories, explore code for hidden impacts
 > **Design** → architecture decisions grounded in the real code
-> **Test Plan** → define acceptance criteria + unit-test coverage (Codex coverage challenge)
+> **Test Plan** → define acceptance criteria + unit-test coverage (adversarial coverage challenge)
 > **Plan** → execution checklist (or a full plan for complex work)
 > **Build** → implement (TDD unit tests), review each task, commit
 >
@@ -227,7 +229,7 @@ Render it with the **`archify` skill** — do not hand-author SVG or use real Me
 
 Uses the story-analysis output (if available) and design exploration output as input.
 
-The test plan defines both the **manual QA acceptance cases** and a separate **Unit Test Coverage** section (the deterministic, non-UI units that get TDD unit tests in Step 6; target `Calorie Counter Tests`, no UI/snapshot tests). Before the plan is finalized, `write-test-plan` runs a **mandatory Codex devil's-advocate coverage challenge** over the whole draft (manual + unit) — this gate is not skippable.
+The test plan defines both the **manual QA acceptance cases** and a separate **Unit Test Coverage** section (the deterministic, non-UI units that get TDD unit tests in Step 6; target `Calorie Counter Tests`, no UI/snapshot tests). Before the plan is finalized, `write-test-plan` runs a **mandatory devil's-advocate coverage challenge** over the whole draft (manual + unit) — Codex when available, a fresh-context subagent otherwise; the gate itself is not skippable.
 
 Save output to `docs/plans/<feature-name>/test-plan.html`.
 

@@ -92,9 +92,9 @@ For each, record: the unit under test → the key behaviors / boundaries to asse
 
 This section is the source `writing-plans` reads to decide which task gets which unit tests (TDD, per task).
 
-## Coverage Challenge (Codex devil's advocate) — mandatory
+## Coverage Challenge (devil's advocate) — mandatory
 
-**Type: Rigid gate. Do not skip, do not rationalize past it.** Before the test plan is finalized and written out, the coverage MUST survive an adversarial review by Codex. Run it on the **draft coverage** — both the manual QA cases AND the Unit Test Coverage section — before saving `test-plan.html`:
+**Type: Rigid gate. Do not skip, do not rationalize past it.** Before the test plan is finalized and written out, the coverage MUST survive an adversarial review — by Codex when available, by a fresh-context subagent otherwise (see fallback below). Run it on the **draft coverage** — both the manual QA cases AND the Unit Test Coverage section — before saving `test-plan.html`:
 
 1. Open a Codex session with `mcp__codex__codex`, configured `cwd` = project root, `sandbox: read-only`, `approval-policy: never`.
 2. Frame Codex as a **picky devil's advocate** whose only job is to attack the coverage. Send it the draft cases + unit-test scope plus the story-analysis / design inputs, and ask it to find:
@@ -105,11 +105,11 @@ This section is the source `writing-plans` reads to decide which task gets which
 3. Evaluate each challenge with project context — accept real gaps, push back (with reasoning) on speculative ones. Iterate via `mcp__codex__codex-reply`; keep the thread.
 4. Fold the agreed gaps into the coverage. Only then proceed to write `test-plan.html`.
 
-If `mcp__codex__codex` is unavailable, stop and ask the user to enable it — do NOT finalize the test plan by skipping this gate.
+**Codex unavailable → internal fallback, not a stop**: hand the same devil's-advocate brief (step 2's attack list, the draft coverage, the story-analysis / design inputs) to a **fresh-context subagent** (`general-purpose`, read-only) that has not seen how the draft was constructed. Evaluate and fold its challenges exactly as in steps 3–4, and record in the plan summary that the challenge ran on the internal fallback. The gate is on the adversarial pass, not on Codex specifically — it is never skipped.
 
 | Thought | Reality |
 |---|---|
-| "Coverage already looks complete" | Then Codex finds nothing and the gate costs one round. Run it. |
+| "Coverage already looks complete" | Then the challenger finds nothing and the gate costs one round. Run it. |
 | "Auto mode means I can skip this" | Auto mode does not disable a Rigid gate. |
 | "This feature is small" | Small features have the cheapest, fastest challenge. Run it anyway. |
 
@@ -131,7 +131,7 @@ Reach this point only after the mandatory **Coverage Challenge** above has resol
 
 Upload the **manual QA cases only** — the Unit Test Coverage section stays in the repo (it drives TDD, not manual QA).
 
-1. **Preflight**: call `whoami` on the `testsecret` MCP. If the server is unreachable, tell the user and record the deferred upload in the test plan — never silently skip.
+1. **Preflight**: call `whoami` on the `testsecret` MCP. If the server is unreachable, tell the user and record the deferred upload in the test plan — never silently skip. If the MCP is not configured at all, offer to set it up with the guide at https://claude.ai/code/artifact/656220b8-5cc5-46de-8880-e330839cbb62.
 2. **Section**: `list_sections`; reuse the section named after the feature, or `create_section` for it.
 3. **Re-run guard**: `list_cases` filtered by the feature tag. If cases from a previous upload exist, patch the changed ones via `bulk_update_cases` (match on `ref_id`) instead of creating duplicates.
 4. **Payload** per case: `title` (case title with the `[N]` prefix stripped), `ref_id` = `<feature-slug>-<N>`, `section_id`, `preconditions`, `steps` (one `{description, expected}` per step row), `tags` = `["<feature-slug>"]`, `refs` = story/Figma links when available, `status` = `Draft` — QA owns the Draft → Ready → Approved promotion inside TestSecret.
