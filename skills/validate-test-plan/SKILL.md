@@ -1,6 +1,6 @@
 ---
 name: validate-test-plan
-description: Use when a test plan (test-plan.html, a CSV, or any case list) needs to be validated against the implementation — refute-first verification with typed verdicts and evidence, criticality × verifiability routing that shrinks the manual-QA list, and explicit punting of what static reading cannot prove. Backs feature-workflow Step 7a; also runs standalone on any test plan.
+description: Use when a test plan (test-plan.html, a CSV, or any case list) needs to be validated against the implementation — refute-first verification with typed verdicts and evidence, criticality × verifiability routing that shrinks the manual-QA list, and explicit punting of what static reading cannot prove. Backs feature-workflow Step 7a and records the outcome to TestSecret (release/run + per-case results); also runs standalone on any test plan.
 ---
 
 # Validate Test Plan
@@ -81,6 +81,28 @@ One table: case → criticality → class → verdict → evidence / punt reason
 
 **In feature-workflow Step 7a** this report is the gate's input: gaps block Step 7c unless the human explicitly defers them (record the deferral in the test plan); the punt list requires the human's do-or-waive call. **Standalone**: the report is the deliverable — fixes are a separate ask.
 
+## Phase 5 — Record results in TestSecret (feature-workflow context)
+
+After the human resolves the Phase 4 report (do-or-waive calls made), write the outcome back to TestSecret (the `testsecret` MCP) so QA sees one live picture. Skip with an explicit note if the plan was never uploaded (no feature tag in TestSecret) or the server is unreachable — the write-back never blocks the gate.
+
+1. Locate the feature's cases: `list_cases` by the feature tag (uploaded by `write-test-plan`; case ids also sit in `test-plan.html` rows).
+2. Release: `list_releases` (`state: active`); confirm the target with the user, or `create_release` named after the feature (`idempotency_key` via `uuidgen`).
+3. `create_run` in that release — name `<feature> — 7a validation`, `build` = the verified build when known, `case_ids` = the feature's case ids.
+4. `list_tests` on the run to map case → `test_id`, then `bulk_add_results` (≤200, `idempotency_key`) with this verdict mapping (case rollup):
+
+| 7a verdict | TestSecret result | Comment |
+|---|---|---|
+| VERIFIED, all sub-clauses via U/S | `Dev-Verified` | evidence summary (test names / `file:line` chains) |
+| VERIFIED via Phase 3 runtime observation | `AI-Tested` | the capture cited (flow, screenshot, log) |
+| PARTIAL | `Retest` | exactly which sub-clauses remain unverified |
+| NOT-FOUND | `Failed` | searches tried; where the gap lives |
+| PUNTED (manual QA) | *no result* — stays `Untested` | the run's Untested set IS the manual-QA queue |
+| Waived (non-critical, human sign-off) | `Skipped` | "risk accepted by user: <reason>" |
+
+A case with **any** punted sub-clause stays `Untested` even when its other sub-clauses are machine-verified — a recorded result would let QA skip the manual check; note the partial machine evidence via `add_case_comment` instead.
+
+5. Report the run id and its rollup (`get_run_summary`) to the user.
+
 ## Remember
 
 - Sub-clauses are the unit of verification, not cases
@@ -91,3 +113,4 @@ One table: case → criticality → class → verdict → evidence / punt reason
 - Batch small — late cases get first-case scrutiny
 - The punt and risk-acceptance lists are human decision points, not appendices
 - Date/clock cases: inject `today` (DEBUG seam) to machine-verify the *logic* through the app's real refresh path (U); the on-screen value across the change stays *R* — never let the injected-clock test speak for the pixels
+- TestSecret write-back happens after the human's do-or-waive calls, never before; punted cases stay Untested there — that Untested set is the manual-QA queue

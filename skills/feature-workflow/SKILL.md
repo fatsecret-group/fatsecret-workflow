@@ -42,6 +42,8 @@ Before starting, verify that required skills are available:
 - `fatsecret-workflow:writing-plans`
 - `fatsecret-workflow:validate-test-plan`
 
+**MCP**: the `testsecret` server (TestSecret, the team's authoritative case library) backs the Step 4 case upload and the Step 7a result write-back. If it is unreachable at those steps, defer the upload/write-back with an explicit note to the user — never silently skip, and never block the rest of the workflow on it.
+
 **Note on testing:** Tasks with testable logic are built with **TDD** — the engineer writes a failing unit test first, then implements until it passes, iterating with `xcodebuildmcp` (`build_sim` to compile, `test` to run). Test-quality rules: watch the test fail before making it pass; test observable behavior at the seams the test plan names — never internals or private methods; expected values come from an independent source of truth (a known-good literal, the spec), never recomputed the way the code computes them; one slice at a time — one test, one minimal implementation, repeat. The unit-test scope for the feature is defined in the test plan's **Unit Test Coverage** section. Per-task verification — including re-running the task's unit tests — is owned by `review-task`. UI tests and snapshot tests are out of scope; the unit test target is `Calorie Counter Tests`.
 
 ## Workflow at a Glance
@@ -229,7 +231,7 @@ The test plan defines both the **manual QA acceptance cases** and a separate **U
 
 Save output to `docs/plans/<feature-name>/test-plan.html`.
 
-Wait for human confirmation before proceeding.
+Wait for human confirmation before proceeding. **After confirmation**, `write-test-plan` uploads the approved manual QA cases to TestSecret (`testsecret` MCP) as `Draft` — section and tag named after the feature, TestSecret case ids written back into `test-plan.html`. TestSecret is the authoritative case library from that point on; Step 7a validates against it and records results there.
 
 ---
 
@@ -291,6 +293,8 @@ Three sub-steps to close out the feature:
 **Condition**: Always (Full Track).
 
 Validate implementation coverage against the test plan — refute-first, typed verdicts per sub-clause, runtime/external clauses punted explicitly rather than graded from static reading. **Blocking:** unresolved acceptance gaps stop the workflow here — do not proceed to 7c unless the user explicitly defers a gap (record the deferral and reason in the test plan); each punt-list item needs the human's do-or-waive call. For features whose per-task review gates were structurally weak — no Figma AND no unit-testable logic (e.g. backend-integration work) — 7a must include verification against the real backend/integration (the skill's runtime pass), or an explicit user waiver.
+
+After the human resolves the report, the skill records the outcome to TestSecret (Phase 5): a run whose per-case results carry the verdicts (`Dev-Verified` / `AI-Tested` / `Failed` / `Retest` / `Skipped`), with punted cases left `Untested` — that Untested set is QA's manual queue.
 
 ### 7b. Verify before completion
 

@@ -113,9 +113,9 @@ If `mcp__codex__codex` is unavailable, stop and ask the user to enable it — do
 | "Auto mode means I can skip this" | Auto mode does not disable a Rigid gate. |
 | "This feature is small" | Small features have the cheapest, fastest challenge. Run it anyway. |
 
-## External Authoritative QA Plan
+## TestSecret — the authoritative case library
 
-If the QA team maintains its own test plan for this feature (a spreadsheet, an artifact link, a case-management tool), **theirs is authoritative**. Ask the user whether one exists before finalizing. When it does: map this plan's cases to theirs, reconcile gaps in both directions (cases they have that this plan missed become additions here; cases here that they lack get flagged to the user for hand-off), and record the mapping — do not maintain two divergent plans in parallel. Step 7a verification then runs against the authoritative plan.
+The team's manual QA cases live in **TestSecret** (the `testsecret` MCP server). Once this plan's cases are uploaded (see Finalize & Hand Off), the TestSecret copies are authoritative: Step 7a validates against them and records results there. If QA also maintains a separate artifact for this feature (a spreadsheet, a doc), reconcile it into this plan **before** upload — cases theirs has that this plan missed become additions here; cases here that theirs lacks get flagged to the user — so a single source of truth goes up, never two divergent plans.
 
 ## Finalize & Hand Off
 
@@ -124,4 +124,17 @@ Reach this point only after the mandatory **Coverage Challenge** above has resol
 1. Save the test plan (with the Unit Test Coverage section) to the feature's output directory (see feature-workflow Output Directory rule) as `test-plan.html` (or `test-plan.csv` per the fallback above)
 2. Present a summary to the user: total manual cases, unit-test units covered, coverage areas, and the gaps the Codex challenge surfaced + how they were resolved
 3. Ask user to review and approve before proceeding to `writing-plans`
-4. The approved test plan becomes the acceptance criteria for implementation — its Unit Test Coverage section drives the per-task TDD steps in `writing-plans`
+4. **Upload the approved cases to TestSecret** (see below)
+5. The approved test plan becomes the acceptance criteria for implementation — its Unit Test Coverage section drives the per-task TDD steps in `writing-plans`
+
+### Upload to TestSecret (after approval)
+
+Upload the **manual QA cases only** — the Unit Test Coverage section stays in the repo (it drives TDD, not manual QA).
+
+1. **Preflight**: call `whoami` on the `testsecret` MCP. If the server is unreachable, tell the user and record the deferred upload in the test plan — never silently skip.
+2. **Section**: `list_sections`; reuse the section named after the feature, or `create_section` for it.
+3. **Re-run guard**: `list_cases` filtered by the feature tag. If cases from a previous upload exist, patch the changed ones via `bulk_update_cases` (match on `ref_id`) instead of creating duplicates.
+4. **Payload** per case: `title` (case title with the `[N]` prefix stripped), `ref_id` = `<feature-slug>-<N>`, `section_id`, `preconditions`, `steps` (one `{description, expected}` per step row), `tags` = `["<feature-slug>"]`, `refs` = story/Figma links when available, `status` = `Draft` — QA owns the Draft → Ready → Approved promotion inside TestSecret.
+5. **Upload**: `bulk_create_cases` (≤200 per call, all-or-nothing; generate the required `idempotency_key` with `uuidgen`).
+6. **Write the mapping back**: add each case's TestSecret id to its row in `test-plan.html` — Step 7a's result write-back needs it.
+7. Report to the user: how many cases went up, into which section, under what tag.
