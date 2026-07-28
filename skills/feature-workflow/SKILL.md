@@ -106,6 +106,10 @@ Use the shared skeleton at `references/plan-doc-skeleton.html` (in this skill's 
 
 A project may override the format in its own CLAUDE.md (e.g. `docs/plans/<area>/CLAUDE.md` "Plan document format"). If a project explicitly asks for markdown or CSV, follow that instead.
 
+### Document language — English
+
+**Everything this workflow writes down is in English**, regardless of the language the human and the model are conversing in: the plan artifacts above, their diagrams, the Execution Checklist, TestSecret cases, `CODEBASE-KNOWLEDGE.md` entries, code comments, and commit messages. These outlive the conversation and are read by the wider team, by QA inside TestSecret, and by tooling — the chat language is one person's channel preference, not a property of the artifact. Quoting a human's or a story's exact wording in its original language is fine where the wording itself is the point; the surrounding document stays English.
+
 ---
 
 ## Large Projects — Phase Mode

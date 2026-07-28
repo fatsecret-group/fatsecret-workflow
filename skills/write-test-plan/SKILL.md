@@ -22,6 +22,8 @@ Read and understand all stories before writing test cases.
 
 ## Output Format
 
+**Language: English.** The plan is executed by QA and uploaded to TestSecret as shared cases — write it in English even when the working conversation is in another language. This covers case titles, preconditions, steps, and expected results.
+
 Write the test plan as **self-contained HTML with a left-side sticky TOC** — copy the structure from the shared skeleton at `../feature-workflow/references/plan-doc-skeleton.html` (in the `fatsecret-workflow` plugin). Render the cases as one or more `<table>`s grouped by feature area (see Grouping below); use the `--pass-*` / `--warn-*` / `--gate-*` CSS vars from the skeleton for status cells if you include a result column.
 
 Use `example-test-plan.csv` (in this skill's directory) as the reference for the **column structure and the multi-row step pattern** — map those columns to table headers and the step rows to table rows.

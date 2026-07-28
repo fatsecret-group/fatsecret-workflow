@@ -158,6 +158,8 @@ Do NOT dump all questions as a list for the user to answer in bulk — this lead
 
 ## Output Format
 
+**Language: English.** The document is read by the wider team and outlives the conversation — write it in English even when the working conversation is in another language. Quoting a story's or the human's exact wording in its original language is fine where the wording itself is the point.
+
 Write the document as **self-contained HTML with a left-side sticky TOC** — copy the structure from the shared skeleton at `../feature-workflow/references/plan-doc-skeleton.html` (in the `fatsecret-workflow` plugin). Fill the `<nav id="toc">` with the sections below and give each `<h2>`/`<h3>` a matching `id`. Render each **Executable Item** as an `.item-card`, the **Source / Summary / Preconditions / …** rows with `.field-label`, and the metadata line (Stories / Branch / Author / Date) as `p.meta`. (If a project's CLAUDE.md overrides the format to markdown, use the same section structure in markdown instead.)
 
 The document must contain these sections (mapped to HTML headings + cards):

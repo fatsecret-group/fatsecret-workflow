@@ -72,6 +72,8 @@ Where the environment has `xcodebuildmcp` + Proxyman MCP: `build_run_sim`, drive
 
 ## Phase 4 — Report
 
+**Language: English** — the report is read by the wider team, and its verdict comments are written into TestSecret as shared records.
+
 One table: case → criticality → class → verdict → evidence / punt reason → owning task (when mapped). Then, by routing quadrant:
 
 - **Gaps** (NOT-FOUND / PARTIAL, any quadrant): each with what's missing and where it should live

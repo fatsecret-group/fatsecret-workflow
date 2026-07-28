@@ -54,6 +54,8 @@ State which output you chose and why in one sentence before writing it.
 
 ## File Structure
 
+**Language: English.** The checklist or plan is executed by other engineers and agents, and its task titles become commit messages — write it in English even when the working conversation is in another language.
+
 Before defining tasks, map out which files will be created or modified and what each one is responsible for. This is where decomposition decisions get locked in.
 
 - Design units with clear boundaries and well-defined interfaces. Each file should have one clear responsibility.
