@@ -33,14 +33,16 @@ No other plugins are required — the workflow's TDD rules, bug-diagnosis method
 
 ### Optional MCP servers
 
-Some skills integrate with external tools via MCP. **In the full feature-workflow, the Codex, Figma, and XcodeBuildMCP gates are required** — the workflow stops and asks rather than silently skipping them, unless a skill explicitly defines a fallback. Install the servers for the skills you use.
+Some skills integrate with external tools via MCP. The full feature-workflow checks them at Step 1 and reports a readiness table: **XcodeBuildMCP is required** (and **Figma** when the feature has UI work) — a missing one is surfaced, never silently skipped. **Codex, Proxyman, and TestSecret are optional**, each with a defined fallback. Install the servers for the skills you use.
 
-| MCP Server | Used by | Purpose |
-|------------|---------|---------|
-| [Figma MCP](https://github.com/figma/figma-mcp) | `story-analysis`, `figma-driven-implementation`, `review-task` | Design-to-code workflow |
-| [Codex MCP](https://github.com/openai/codex) | `review-task` | AI code review debates |
-| [Shortcut MCP](https://www.npmjs.com/package/@shortcut/mcp) | `story-analysis`, `feature-workflow` | Read stories from Shortcut; search historical stories during design grilling |
-| [XcodeBuildMCP](https://github.com/getsentry/XcodeBuildMCP) | `run`, `review-task` | Build, run, UI automation |
+| MCP Server | Used by | Purpose | Missing → |
+|------------|---------|---------|-----------|
+| [XcodeBuildMCP](https://github.com/getsentry/XcodeBuildMCP) | `run`, `review-task`, `feature-workflow` | Build, run, tests, UI automation | required — reported at Step 1 |
+| [Figma MCP](https://github.com/figma/figma-mcp) | `story-analysis`, `figma-driven-implementation`, `review-task` | Design-to-code workflow | required for UI features |
+| [Shortcut MCP](https://www.npmjs.com/package/@shortcut/mcp) | `story-analysis`, `feature-workflow` | Read stories from Shortcut; search historical stories during design grilling | recorded in `design.html`; human supplies past stories |
+| [Codex MCP](https://github.com/openai/codex) | `feature-workflow` (design challenge), `write-test-plan` (coverage challenge), `review-task` (review debate) | Independent adversary for the three review gates | built-in `/code-review` (review-task) or a fresh-context subagent (design & coverage challenges) |
+| [TestSecret](https://claude.ai/code/artifact/656220b8-5cc5-46de-8880-e330839cbb62) | `write-test-plan`, `validate-test-plan` | Authoritative QA case library: case upload + result write-back | upload/write-back deferred with a note |
+| [Proxyman MCP](https://proxyman.com) | `validate-test-plan` | Runtime network capture for runtime-only cases | those cases stay punted to manual QA |
 
 <details>
 <summary><strong>MCP setup instructions</strong></summary>

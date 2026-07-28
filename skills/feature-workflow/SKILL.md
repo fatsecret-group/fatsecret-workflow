@@ -55,7 +55,7 @@ Step 1: Introduction        — collect input, pick track, confirm output folder
   ├─ Lite Track (bug fix / mechanical refactor / small UI tweak) — see "Lite Track" below
   └─ Full Track:
      Step 2: Story Analysis      — understand stories + explore code [skip if no stories]
-     Step 3: Design Exploration  — architecture decisions, grounded in real code
+     Step 3: Design Exploration  — architecture decisions, grounded in real code; adversarial design challenge
      Step 4: Test Plan           — manual QA + unit-test coverage; mandatory adversarial coverage challenge
      Step 5: Execution Plan      — execution checklist (default) or full implementation plan (when triggered)
      Step 6: Build               — execute each task; review-task gates every commit
@@ -140,7 +140,7 @@ Present this to the user and collect input:
 > I'll guide you through our delivery workflow:
 >
 > **Analyze** → understand stories, explore code for hidden impacts
-> **Design** → architecture decisions grounded in the real code
+> **Design** → architecture decisions grounded in the real code (adversarial design challenge)
 > **Test Plan** → define acceptance criteria + unit-test coverage (adversarial coverage challenge)
 > **Plan** → execution checklist (or a full plan for complex work)
 > **Build** → implement (TDD unit tests), review each task, commit
@@ -208,7 +208,7 @@ Do not present a final design until the interview has reached shared understandi
 - **Qualitative goals are converted** to a measurable threshold or explicitly marked "no threshold — human judges in QA"; never left as adjectives.
 - **Everything decided in the interview is written into `design.html`.** A decision that lives only in the conversation was not decided — compaction erases it, and Invariant 5 re-anchors on the artifact, not the chat.
 
-Explore the codebase, discuss trade-offs, and present a design to the user. Wait for human confirmation.
+Explore the codebase, discuss trade-offs, and write up the design. Before it goes to the human it must survive the **Design Challenge** below; only the folded-in version is presented. Wait for human confirmation.
 
 **Grounding rule — verify, don't remember.** Every type, file, field, wire format, or claim about existing behavior that appears in the design MUST be verified against the actual codebase before it is presented — open the code and cite the source path in `design.html`. This is the `figma-driven-implementation` discipline applied to code facts: query, don't remember. A design that names a type or API you haven't opened this session is not ready to present. When replacing an existing subsystem, the source implementation is the spec — read and enumerate its guards/branches/semantics before designing the replacement (see `writing-plans` "Migration discipline").
 
@@ -219,6 +219,29 @@ Save output to `docs/plans/<feature-name>/design.html`.
 **Data-flow / flow diagram (draw it when the shape carries information).** Include a diagram in `design.html` whenever the phase's shape says something prose can't show at a glance — and skip it when prose/tables already do. Draw it for: a chain across several components (entry → processing → local store → network → read-back); a **fan-in / fan-out or source-of-truth merge** (a data migration that unions multiple sources, or a dual-write that splits into several); a local↔network (or sync↔async) boundary crossing; guarded branches where a condition changes the path; or a state machine / transition. **Skip** it for a single function or component, a static data model or contract (use a table), pure-UI layout (Figma owns that), and trivial linear two-step calls (a sentence suffices). Show the *main flow*: the classes and key functions it passes through, and how data is processed, persisted, uploaded, and downloaded. Author it **at design time — before the build** (not as an after-the-fact "as-built" diagram): it is the architecture spine the execution plan slices into tasks; after build, annotate only the deltas.
 
 Render it with the **`archify` skill** — do not hand-author SVG or use real Mermaid/CDN. Invoke `archify` and pick the mode that matches the shape: `dataflow` (pipelines, migration/seeding, source-of-truth merge, cross-device sync, lineage) · `workflow` (flows, guarded branches, approval gates, runbooks) · `sequence` (call chains / request lifecycles — who calls whom) · `lifecycle` (state machines, transitions, retries, terminal states) · `architecture` (component / system maps). archify emits a **self-contained, themed HTML diagram** (dark/light toggle + PNG/JPEG/WebP/SVG export) with validated layout, and also accepts pasted Mermaid (it re-lays-it-out from scratch). Save the diagram into `docs/plans/<feature-name>/` beside `design.html` and link it from there. Skip it for pure-UI or trivial single-component phases. (If the `archify` skill isn't installed, fall back to a self-contained inline SVG following the same when-to-draw rules.)
+
+### Design Challenge (devil's advocate) — mandatory
+
+**Type: Rigid gate. Do not skip, do not rationalize past it.** Once `design.html` is written and **before it reaches the human**, the design MUST survive an adversarial review — by Codex when available, by a fresh-context subagent otherwise. The human gate reviews the *challenged* design, never the first draft.
+
+1. Open a Codex session with `mcp__codex__codex`, `cwd` = project root, `sandbox: read-only`, `approval-policy: never` — the challenger needs the real code to check the design against.
+2. Send `design.html` (plus the story-analysis output, or the raw request when there are no stories) and frame Codex as a **picky devil's advocate** whose only job is to attack the design. Ask it to find:
+   - **Ungrounded claims** — every type, file, field, wire format, or existing-behavior claim in the design, checked against the actual code. This is the highest-value find: the author cannot reliably self-check what they believe they verified.
+   - **Wrong decisions** — a rejected alternative that is actually better, a D-decision whose stated trade-off doesn't exist, a rationale that is post-hoc justification
+   - **Missing Assumptions & Risks** — load-bearing claims presented as fact that were never verified against anything
+   - **Unverifiable acceptance** — acceptance points naming no verification mechanism, qualitative goals left as adjectives, absent non-goals, goal conflicts with no pre-ranked priority
+   - **Uncovered paths** — error/failure handling, concurrency, migration/rollback, and regressions of existing behavior the design never mentions
+3. Evaluate each challenge with project context — accept real findings, push back (with reasoning) on speculative ones. **Push back hardest on scope creep**: an adversary told to attack a design reflexively proposes more architecture. The bar is "this design is *wrong or incomplete*", never "this design could be grander" — simplicity survives unless the challenger names a concrete failure it causes. Iterate via `mcp__codex__codex-reply`; keep the thread.
+4. Fold the agreed findings into `design.html`. Only then present the design to the human, and say what the challenge changed.
+
+**Codex unavailable → internal fallback, not a stop**: hand the same brief to a **fresh-context subagent** (`general-purpose`, read-only) that took no part in producing the design. Evaluate and fold its findings exactly as in steps 3–4, and note in the summary that the challenge ran on the internal fallback. The gate is on the adversarial pass, not on Codex specifically — it is never skipped.
+
+| Thought | Reality |
+|---|---|
+| "The grilling interview already stress-tested this" | The interview tested the human's intent. The challenge tests the *design against the code* — a different axis. |
+| "I verified every claim as I wrote it" | Self-verification is exactly what this catches; you cannot audit your own recall. |
+| "The design is small / obvious" | Then the challenge costs one round and returns nothing. Run it. |
+| "Auto mode means I can skip this" | Auto mode does not disable a Rigid gate. |
 
 ---
 
