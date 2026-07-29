@@ -291,6 +291,15 @@ Wait for human confirmation before proceeding.
 
 Before starting each new task, run `git status` to confirm the prior task committed cleanly. If uncommitted changes remain, investigate the root cause before starting the new task.
 
+**Task brief — announce before touching anything.** Open every task by presenting a short, visually prominent brief (bold header + bullets) restating its checklist/plan entry — never invented, never expanded:
+
+> **▶ Task N — \<title\>**
+> - **Goal**: the observable outcome this task delivers — its acceptance point
+> - **Files**: the declared Files list (+ Figma nodeId for UI files)
+> - **Tests**: the unit tests this task owns, or "none — pure UI"
+
+This is the checklist entry re-read aloud, not a re-plan: it re-anchors on the artifact at every task boundary (the same discipline Invariant 5 applies after compaction) and gives the human a glanceable checkpoint — a surprising brief gets caught before code is written, not at review. If what you were about to do doesn't match the brief, stop and re-read the checklist instead of improvising. Delegated tasks carry the same brief at the top of the dispatch prompt.
+
 ### Execution
 
 Execute each task exactly as written in the execution checklist (or full plan). **The checklist/plan is the single source of truth for the steps inside a task.**
