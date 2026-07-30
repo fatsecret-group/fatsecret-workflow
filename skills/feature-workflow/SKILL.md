@@ -55,6 +55,7 @@ Step 1: Introduction        — collect input, pick track, confirm output folder
   ├─ Lite Track (bug fix / mechanical refactor / small UI tweak) — see "Lite Track" below
   └─ Full Track:
      Step 2: Story Analysis      — understand stories + explore code [skip if no stories]
+     Step 2.5: Edge-Case Hunt    — 14 probes → decision log that outranks the story text
      Step 3: Design Exploration  — architecture decisions, grounded in real code; adversarial design challenge
      Step 4: Test Plan           — manual QA + unit-test coverage; mandatory adversarial coverage challenge
      Step 5: Execution Plan      — execution checklist (default) or full implementation plan (when triggered)
@@ -91,6 +92,8 @@ All workflow artifacts for a feature are saved under a single folder:
 ```
 docs/plans/<feature-name>/
   ├── story-analysis.html       (from Step 2)
+  ├── edge-cases.md             (from Step 2.5 — the hunt's raw findings)
+  ├── decisions.md              (from Step 2.5 — authoritative; outranks the story text)
   ├── design.html               (from Step 3; includes the Execution Checklist section from Step 5)
   ├── test-plan.html            (from Step 4)
   └── implementation-plan.html  (from Step 5 — only when a full plan is triggered)
@@ -187,6 +190,21 @@ Save output to `docs/plans/<feature-name>/story-analysis.html`.
 
 ---
 
+## Step 2.5 — Edge-Case Hunt [human gate]
+
+**Skill**: `fatsecret-workflow:edge-case-hunt`
+**Condition**: Always, whenever there is a spec at all — including the Lite Track when the bug report is the spec. Skip only for work whose entire behavior you are defining yourself.
+
+Step 2 establishes what the feature *is*. This step establishes what the spec **does not say**, which is where roughly half the implementation decisions live. Fourteen probes run against the real codebase, then each finding tagged `[DECISION]` / `[ALIGN]` / `[BUG-EXISTING]` / `[IMPL]` / `[NOTE]` and routed.
+
+Two outputs, both in the feature folder:
+- `edge-cases.md` — every finding with its evidence (`file:line`, Figma nodeId, story sentence)
+- `decisions.md` — **the authoritative log. Where it and a story disagree, it wins.** It must carry a "superseded story text" section: the Shortcut stories usually do not get edited, and without that section QA verifies against dead text and files bugs against correct behavior.
+
+**Gate**: `[DECISION]` items go to the PM one question at a time, each with options and a recommendation. Do not enter Step 3 with unresolved `[DECISION]` items in the feature's critical path — a design built on an assumption that later flips is a redesign, not an edit. Genuinely non-blocking items may be carried forward, listed explicitly in `decisions.md` §12 with their owner.
+
+---
+
 ## Step 3 — Design Exploration [human gate]
 
 **Condition**: Always (Full Track). Design is done inline — do not invoke other workflow sub-skills for this step (the `archify` diagram skill below is the one exception).
@@ -254,7 +272,9 @@ Render it with the **`archify` skill** — do not hand-author SVG or use real Me
 **Skill**: `fatsecret-workflow:write-test-plan`
 **Condition**: Always (Full Track).
 
-Uses the story-analysis output (if available) and design exploration output as input.
+Uses the story-analysis output (if available), **`decisions.md` from Step 2.5**, and the design exploration output as input.
+
+`decisions.md` is a required input, not an optional one: **every `[DECISION]` in it becomes at least one test case**, and its "superseded story text" section tells QA which story sentences *not* to verify against. A test plan written from the raw stories will contradict shipped behavior wherever a decision overrode them — and once uploaded to TestSecret, that contradiction becomes QA's problem to discover.
 
 The test plan defines both the **manual QA acceptance cases** and a separate **Unit Test Coverage** section (the deterministic, non-UI units that get TDD unit tests in Step 6; target `Calorie Counter Tests`, no UI/snapshot tests). Before the plan is finalized, `write-test-plan` runs a **mandatory devil's-advocate coverage challenge** over the whole draft (manual + unit) — Codex when available, a fresh-context subagent otherwise; the gate itself is not skippable.
 
