@@ -124,6 +124,7 @@ Requires `OPENAI_API_KEY` environment variable.
 | Skill | Description |
 |-------|-------------|
 | `story-analysis` | Analyze Shortcut stories + Figma designs into executable items |
+| `edge-case-hunt` | Find what the spec leaves out — 14 probes against the codebase, findings tagged and routed, output as a decision log that outranks the story text |
 | `write-test-plan` | Generate test plans from stories/requirements; on approval, uploads the manual QA cases to TestSecret (`testsecret` MCP) as Draft — the authoritative case library |
 
 ### Implementation
