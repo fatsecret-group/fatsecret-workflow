@@ -55,7 +55,7 @@ Step 1: Introduction        — collect input, pick track, confirm output folder
   ├─ Lite Track (bug fix / mechanical refactor / small UI tweak) — see "Lite Track" below
   └─ Full Track:
      Step 2: Story Analysis      — understand stories + explore code [skip if no stories]
-     Step 3: Design Exploration  — architecture decisions, grounded in real code; adversarial design challenge
+     Step 3: Design Exploration  — architecture decisions, grounded in real code; adversarial design challenge; implementation Q&A
      Step 4: Test Plan           — manual QA + unit-test coverage; mandatory adversarial coverage challenge
      Step 5: Execution Plan      — execution checklist (default) or full implementation plan (when triggered)
      Step 6: Build               — execute each task; review-task gates every commit
@@ -144,7 +144,7 @@ Present this to the user and collect input:
 > I'll guide you through our delivery workflow:
 >
 > **Analyze** → understand stories, explore code for hidden impacts
-> **Design** → architecture decisions grounded in the real code (adversarial design challenge)
+> **Design** → architecture decisions grounded in the real code (adversarial design challenge, then implementation Q&A)
 > **Test Plan** → define acceptance criteria + unit-test coverage (adversarial coverage challenge)
 > **Plan** → execution checklist (or a full plan for complex work)
 > **Build** → implement (TDD unit tests), review each task, commit
@@ -212,7 +212,7 @@ Do not present a final design until the interview has reached shared understandi
 - **Qualitative goals are converted** to a measurable threshold or explicitly marked "no threshold — human judges in QA"; never left as adjectives.
 - **Everything decided in the interview is written into `design.html`.** A decision that lives only in the conversation was not decided — compaction erases it, and Invariant 5 re-anchors on the artifact, not the chat.
 
-Explore the codebase, discuss trade-offs, and write up the design. Before it goes to the human it must survive the **Design Challenge** below; only the folded-in version is presented. Wait for human confirmation.
+Explore the codebase, discuss trade-offs, and write up the design. Before it goes to the human it must survive the **Design Challenge** below; only the folded-in version is presented. The gate then closes on two things, not one: the human confirms the design **and** the human explicitly declares they have no more implementation questions (**Implementation Q&A** below).
 
 **Grounding rule — verify, don't remember.** Every type, file, field, wire format, or claim about existing behavior that appears in the design MUST be verified against the actual codebase before it is presented — open the code and cite the source path in `design.html`. This is the `figma-driven-implementation` discipline applied to code facts: query, don't remember. A design that names a type or API you haven't opened this session is not ready to present. When replacing an existing subsystem, the source implementation is the spec — read and enumerate its guards/branches/semantics before designing the replacement (see `writing-plans` "Migration discipline").
 
@@ -246,6 +246,20 @@ Render it with the **`archify` skill** — do not hand-author SVG or use real Me
 | "I verified every claim as I wrote it" | Self-verification is exactly what this catches; you cannot audit your own recall. |
 | "The design is small / obvious" | Then the challenge costs one round and returns nothing. Run it. |
 | "Auto mode means I can skip this" | Auto mode does not disable a Rigid gate. |
+
+### Implementation Q&A — the gate closes only after this
+
+**Type: Rigid gate.** After presenting the *challenged* design and what the challenge changed, ask the human — explicitly, in the same turn — whether they have questions about how anything gets implemented: "how does X actually work", "where does Y live", "what happens when Z". Never run this on an unchallenged draft.
+
+- **Answer under the Grounding rule.** Open the code and cite `file:line`; an answer naming a type, file, or API you have not opened this session is not an answer. Fan out read-only agents for the legwork — the answer itself is given inline (Invariant: gates are never delegated).
+- **Fold back before continuing.** Any answer that exposes a gap, changes a decision, or surfaces an unverified assumption goes into `design.html` (new or changed D-number, or Assumptions & Risks) *before* the round can end. Re-present what changed, then ask again. Nothing else is written down — the Q&A itself produces no artifact.
+- **Loop until the human explicitly says they have no more questions.** Then proceed to Step 4.
+
+| Thought | Reality |
+|---|---|
+| "They approved the design, so the round is closed" | Approval and "no more questions" are two separate confirmations. Both are required. |
+| "They went quiet / said 'looks good'" | Silence and vague praise are not the declaration. Ask again. |
+| "This question is too deep for design — it's an implementation detail" | If it can't be answered from the code now, it's an assumption or a risk. Record it as one. |
 
 ---
 
