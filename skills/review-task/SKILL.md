@@ -12,7 +12,7 @@ description: Use after implementing a task — one review pass covering spec com
 
 This skill performs **one review pass per invocation**:
 - Reviews spec compliance, Figma UI match + existing-element regression, Codex debate, and simplification/style
-- Runs the task's unit tests (target `Calorie Counter Tests`)
+- Runs the task's unit / integration tests, scoped to the task's own test classes (target `Calorie Counter Tests`)
 - Builds the app and runs the simulator for UI verification
 - If the changed UI cannot be reached via normal app flow, autonomously adds a temporary trigger at the start of `Utils.runTest()`, exercises it from the debug menu, screenshots, then removes the trigger before returning
 - Any check that cannot run is reported as **UNVERIFIED — it never silently passes** (exception: an unavailable Codex MCP switches check 3 to the built-in `/code-review` fallback — the adversarial pass still runs, so it is neither UNVERIFIED nor skipped)
@@ -67,8 +67,9 @@ The reviewer debates with Codex directly to reach consensus on what issues exist
 - Push back on over-engineered suggestions — the right fix is the minimal correct fix
 
 **4. Unit Tests**
-- Run the task's unit tests with XcodeBuildMCP (`test`) against the `Calorie Counter Tests` target
-- The unit tests this task added/changed — and any existing tests the change could affect — must pass. A red test is a confirmed issue
+- Run a **scoped** set with XcodeBuildMCP `test_sim`, one `-only-testing:Calorie Counter Tests/<TestClass>` entry in `extraArgs` per class. The set is read off the task's checklist entry, nothing else: the test classes under **Tests** plus the existing classes under **Re-run**. Selection was made and confirmed at Step 5 — do not add classes by judging what the change "could affect" or by reading what tests import, and never run the unfiltered target; the full suite runs once at Step 7b
+- A red test in the scoped set is a confirmed issue. If the change plainly touches code no listed class covers, report that as a finding (the plan's Re-run list is incomplete) rather than silently widening the run
+- **No expectation drift.** Scan the diff for changes to existing tests: an edited expected value, a weakened assertion (`assertEqual` → `assertNotNil`, a removed check), a deleted or skipped test. Each one must trace to a D-decision change in `design.html` or a changed row in the test plan; otherwise it is a confirmed issue — the implementation was fitted to pass, not fixed. This applies with full force inside the review-fix loop, where the pressure to go green is highest
 - If the test target cannot be built/run (e.g., a worktree without the Xcode project), report this check as **UNVERIFIED** — never as passed
 
 **5. Simplification & Style**

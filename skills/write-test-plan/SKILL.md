@@ -30,7 +30,7 @@ Use `example-test-plan.csv` (in this skill's directory) as the reference for the
 
 **CSV alternative:** If the project's CLAUDE.md asks for CSV, or QA needs to import the plan into a spreadsheet, emit `test-plan.csv` matching `example-test-plan.csv` instead. HTML is the default; CSV is the explicit-request fallback.
 
-**Unit Test Coverage** is rendered as its own `<table>`, kept separate from the manual QA cases — they are different artifacts (see "Unit Test Coverage" below).
+**Automated Coverage** is rendered as its own `<table>`, kept separate from the manual QA cases — they are different artifacts (see "Automated Coverage" below).
 
 ## Writing Guidelines
 
@@ -77,31 +77,43 @@ Order test cases logically by feature area:
 5. Account/market-specific behavior
 6. Persistence and data integrity
 
-### Unit Test Coverage
+### Automated Coverage
 
-Beyond the manual QA cases above, the test plan defines which logic gets **automated unit tests**. Keep this in a **separate section/table** from the manual cases — the two are different artifacts: manual cases are executed by a human against the running app; unit tests are code written alongside the implementation (TDD) and run by `xcodebuildmcp test`.
+Beyond the manual QA cases above, the test plan defines which behavior gets **automated tests**. Keep this in a **separate section/table** from the manual cases — the two are different artifacts: manual cases are executed by a human against the running app; automated tests are code written alongside the implementation (TDD) and run by `xcodebuildmcp test_sim`. Both layers below live in the **`Calorie Counter Tests`** target (already present in the project).
 
-Identify the **deterministic, non-UI units** worth covering:
-- Pure functions and computed transforms
-- View models / presenters (the logic, not the SwiftUI view)
+**Coverage is chosen by risk, not by structure.** The goal is not a test per class or per function. It is that every behavior which, if wrong, would silently give the user bad data or a broken flow has exactly one test that catches it. Fewer, sharper tests beat many.
+
+The section has two layers, each its own table:
+
+**Unit** — pure computation and explicit business rules with a deterministic answer:
+- Portion / unit conversion, nutrition arithmetic, date normalisation and day/week attribution
 - Parsers, serializers, mappers
-- Business rules and validation
-- State-transition logic (flag/counter changes, upgrade-path logic)
+- Validation and threshold rules; state-transition logic (flag/counter changes, upgrade-path logic)
+- View model / store state logic (dirty state, in-flight dedupe, failure reverts, ordering and staleness), asserted on the resulting observable state — never on which mock method was called
 
-For each, record: the unit under test → the key behaviors / boundaries to assert → which Item (from story-analysis) it backs.
+**Integration** — a flow through several real components where the risk is in their combination, not in any one function. Runs against the real persistence layer (a test store, not mocks of it — the existing pattern is `FoodJournalSaveContractTests`):
+- Create / edit → save → release the in-memory object → reload from storage → fields intact
+- Cancel after edit leaves the stored record and derived totals unchanged
+- Update is not implemented as insert; delete rolls derived totals back
+- A logged action → persisted row → daily / weekly aggregate
 
-**Out of scope:** UI tests and snapshot tests. The unit test target is **`Calorie Counter Tests`** (already present in the project).
+Put a behavior in the **lowest layer that can observe it**: a unit test for a pure rule, an integration test only when the bug would live between components. Do not write the same rule at both layers.
 
-This section is the source `writing-plans` reads to decide which task gets which unit tests (TDD, per task).
+For each row, record: the behavior → the assertion (expected value from an independent source: the design's input → output example, the API/data contract, a known-good literal — never recomputed the way the code will compute it) → **Prevents**: the concrete real error this test would catch if it did not exist → which Item (from story-analysis) it backs. **A row whose Prevents cannot be filled with a specific error is dropped**, not kept "for coverage".
+
+**Not in this section:** getter/setter or pass-through checks, tests that only assert a method was called, behavior the framework or language already guarantees, UI tests and snapshot tests.
+
+This section is the source `writing-plans` reads to decide which task owns which automated tests (TDD, per task).
 
 ## Coverage Challenge (devil's advocate) — mandatory
 
-**Type: Rigid gate. Do not skip, do not rationalize past it.** Before the test plan is finalized and written out, the coverage MUST survive an adversarial review — by Codex when available, by a fresh-context subagent otherwise (see fallback below). Run it on the **draft coverage** — both the manual QA cases AND the Unit Test Coverage section — before saving `test-plan.html`:
+**Type: Rigid gate. Do not skip, do not rationalize past it.** Before the test plan is finalized and written out, the coverage MUST survive an adversarial review — by Codex when available, by a fresh-context subagent otherwise (see fallback below). Run it on the **draft coverage** — both the manual QA cases AND the Automated Coverage section — before saving `test-plan.html`:
 
 1. Open a Codex session with `mcp__codex__codex`, configured `cwd` = project root, `sandbox: read-only`, `approval-policy: never`.
-2. Frame Codex as a **picky devil's advocate** whose only job is to attack the coverage. Send it the draft cases + unit-test scope plus the story-analysis / design inputs, and ask it to find:
+2. Frame Codex as a **picky devil's advocate** whose only job is to attack the coverage. Send it the draft cases + automated coverage plus the story-analysis / design inputs, and ask it to find:
    - **Manual QA gaps**: missing entry points, account/market dimensions, edge/empty states, upgrade-path scenarios, navigation/persistence holes
-   - **Unit-test gaps**: logic branches with no assertion, untested boundary values, error paths, false confidence (a "covered" unit whose real risk lives elsewhere)
+   - **Automated-coverage gaps**: rules with no assertion, untested boundary values, error paths, false confidence (a "covered" unit whose real risk lives between components — belongs in Integration), a save/edit/cancel/delete/aggregate flow with no integration row
+   - **Cost-only rows**: a Prevents that names no concrete error, a rule asserted at both layers, an expected value derived the way the implementation computes it, a row that would break on a harmless refactor
    - **Wrong/redundant cases**: cases that are duplicated, assert the wrong thing, or cover a dimension the feature doesn't actually pass through
    - **Non-actionable cases**: cases a QA engineer could not execute as written (missing preconditions, vague steps, unobservable expected results)
 3. Evaluate each challenge with project context — accept real gaps, push back (with reasoning) on speculative ones. Iterate via `mcp__codex__codex-reply`; keep the thread.
@@ -123,15 +135,15 @@ The team's manual QA cases live in **TestSecret** (the `testsecret` MCP server).
 
 Reach this point only after the mandatory **Coverage Challenge** above has resolved against the draft coverage.
 
-1. Save the test plan (with the Unit Test Coverage section) to the feature's output directory (see feature-workflow Output Directory rule) as `test-plan.html` (or `test-plan.csv` per the fallback above)
-2. Present a summary to the user: total manual cases, unit-test units covered, coverage areas, and the gaps the Codex challenge surfaced + how they were resolved
+1. Save the test plan (with the Automated Coverage section) to the feature's output directory (see feature-workflow Output Directory rule) as `test-plan.html` (or `test-plan.csv` per the fallback above)
+2. Present a summary to the user: total manual cases, automated rows per layer (unit / integration), coverage areas, and the gaps the Codex challenge surfaced + how they were resolved
 3. Ask user to review and approve before proceeding to `writing-plans`
 4. **Upload the approved cases to TestSecret** (see below)
-5. The approved test plan becomes the acceptance criteria for implementation — its Unit Test Coverage section drives the per-task TDD steps in `writing-plans`
+5. The approved test plan becomes the acceptance criteria for implementation — its Automated Coverage section drives the per-task TDD steps in `writing-plans`
 
 ### Upload to TestSecret (after approval)
 
-Upload the **manual QA cases only** — the Unit Test Coverage section stays in the repo (it drives TDD, not manual QA).
+Upload the **manual QA cases only** — the Automated Coverage section stays in the repo (it drives TDD, not manual QA).
 
 1. **Preflight**: call `whoami` on the `testsecret` MCP. If the server is unreachable, tell the user and record the deferred upload in the test plan — never silently skip. If the MCP is not configured at all, offer to set it up with the guide at https://claude.ai/code/artifact/656220b8-5cc5-46de-8880-e330839cbb62.
 2. **Section**: `list_sections`; reuse the section named after the feature, or `create_section` for it.

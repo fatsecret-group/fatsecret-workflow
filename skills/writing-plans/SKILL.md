@@ -11,7 +11,7 @@ Turn a confirmed design + test plan into an executable task breakdown. The defau
 
 Assume the implementer is a skilled developer who knows almost nothing about this codebase — every task names its exact files, tests, and acceptance point. But do NOT front-load code: implementers read the real files at task time. Plans that embed large code blocks go stale the moment the design shifts, and their API references are unverified until something compiles. DRY. YAGNI.
 
-**Project reality — unit tests via TDD, no UI tests.** The project has a unit test target (`Calorie Counter Tests`). Tasks that touch **testable logic** (pure functions, view models, parsers, business rules, state transitions) follow **TDD**: write a failing unit test first, then implement until it passes — iterating with `xcodebuildmcp` (`build_sim` to compile, `test` to run) until both compile cleanly and tests are green. UI tests and snapshot tests stay out of scope; pure-UI tasks with no testable logic keep the plain Implement step. The unit-test scope for a feature comes from the **Unit Test Coverage** section of its `test-plan.html`. All downstream verification (including re-running the task's tests) is owned by `review-task`. Plans MUST NOT prescribe UI-test-writing steps or standalone build steps.
+**Project reality — unit + integration tests via TDD, no UI tests.** The project has one test target (`Calorie Counter Tests`) holding both layers. Tasks that own rows in the test plan's Automated Coverage follow **TDD**: write the failing test first (unit for a pure rule, integration through the real store for a flow), then implement until it passes — iterating with `xcodebuildmcp` (`build_sim` to compile, `test_sim` scoped with `-only-testing:` to the task's own test classes) until both compile cleanly and tests are green. Never run the whole target inside a task — the full suite belongs to Step 7b. UI tests and snapshot tests stay out of scope; pure-UI tasks with no testable logic keep the plain Implement step. The automated scope for a feature comes from the **Automated Coverage** section of its `test-plan.html` — tasks write those rows and nothing beyond them. All downstream verification (including re-running the task's tests) is owned by `review-task`. Plans MUST NOT prescribe UI-test-writing steps or standalone build steps.
 
 **Commit timing.** Each task MUST end with an explicit "Commit & mark complete" step. The checklist/plan is the single source of truth for when commits happen.
 
@@ -94,10 +94,11 @@ Append to `design.html` as a final section ("Execution Checklist"), using the sh
 
 - **Title** — descriptive, referenced as "Task 3 (Target screen wiring)", never a bare "Task 3"
 - **Files** — Create/Modify with exact paths; Figma nodeId for UI files
-- **Unit tests** — which behaviors/boundaries from the test plan's Unit Test Coverage this task owns (TDD), or "none (pure UI)"
+- **Tests** — which rows from the test plan's Automated Coverage this task owns (unit and/or integration, TDD), or "none (pure UI)"
+- **Re-run** — the existing test classes in `Calorie Counter Tests` that exercise the code this task's Files change, named explicitly (grep the test target for the types in Files while writing the plan), or "none". This list is decided here and confirmed at the Step 5 gate; `review-task` runs exactly it plus the task's own tests and makes no selection of its own
 - **Acceptance** — the observable outcome that makes this task done
 - **Steps** — the standard cycle (write it once at the top of the section, not per task):
-  Implement (TDD red → green via `xcodebuildmcp`; `figma-driven-implementation` for UI; compile cleanly, fix new warnings; no simulator run — that's `review-task`'s job) → `review-task` (one pass; the caller owns the fix loop, max 3 rounds) → Knowledge Delta Check (defined below) → Commit & `TaskUpdate(completed)` (stage exactly the declared Files; staged ⊆ Files; post-commit `git status` clean; same-turn human OK per feature-workflow Invariant 1)
+  Implement (TDD red → green via `xcodebuildmcp`, `test_sim` scoped to the task's test classes; `figma-driven-implementation` for UI; compile cleanly, fix new warnings; no simulator run — that's `review-task`'s job) → `review-task` (one pass; the caller owns the fix loop, max 3 rounds) → Knowledge Delta Check (defined below) → Commit & `TaskUpdate(completed)` (stage exactly the declared Files; staged ⊆ Files; post-commit `git status` clean; same-turn human OK per feature-workflow Invariant 1)
 
 **Task tracking is via the harness task list** (`TaskCreate` / `TaskUpdate`) — the document is the human-readable spec; live status lives in the task list.
 
@@ -107,7 +108,7 @@ When a trigger fires, write `implementation-plan.html` as **self-contained HTML 
 
 **Header** — every full plan opens with an `<h1>`, a `p.meta` line (**Goal** | **Architecture** | **Tech Stack** | **Inputs**: links to story-analysis / design / test-plan), and a `.callout` for agentic workers ("Execute task-by-task via `fatsecret-workflow:feature-workflow` Step 6. Each task ends with an explicit commit step.").
 
-**Task structure** — same fields as the checklist (Title / Files / Unit tests / Acceptance / Steps), plus, where the "Code in Plans" rules justify it, interface signatures, concrete test assertions (actual XCTest for the TDD red step — if the type under test doesn't exist yet, note the minimal stub needed so the test fails on the assertion, not on a missing symbol), and full code blocks for new small types or critical algorithms. Migration tasks additionally carry their callsite list and old-path semantics per "Migration Discipline".
+**Task structure** — same fields as the checklist (Title / Files / Tests / Re-run / Acceptance / Steps), plus, where the "Code in Plans" rules justify it, interface signatures, concrete test assertions (actual XCTest for the TDD red step — if the type under test doesn't exist yet, note the minimal stub needed so the test fails on the assertion, not on a missing symbol), and full code blocks for new small types or critical algorithms. Migration tasks additionally carry their callsite list and old-path semantics per "Migration Discipline".
 
 ### Knowledge Delta Check (in every task, checklist or full plan)
 
@@ -130,7 +131,7 @@ Every task must contain what an engineer needs to execute it. These are **plan f
 - Checklist by default; full plan only on a trigger — and no code beyond what "Code in Plans" allows
 - Verify every referenced API/type exists before the plan names it
 - Commit + `TaskUpdate(completed)` only in the task's final step, after `review-task` returns APPROVED, staging exactly the declared Files
-- Tasks with testable logic get TDD steps (failing test → implement, target `Calorie Counter Tests`); no UI/snapshot tests, no standalone build steps
+- Tasks with testable logic get TDD steps (failing test → implement, target `Calorie Counter Tests`, runs scoped with `-only-testing:`); no UI/snapshot tests, no standalone build steps, no full-suite runs
 - Migration work follows Migration Discipline (comment-out first, per-callsite confirmation, behavioral equivalence)
 
 ## Self-Review
@@ -140,7 +141,7 @@ After writing the checklist/plan, look at the spec with fresh eyes and check aga
 1. **Spec coverage:** Can you point to a task for each requirement in the design + test plan? List any gaps.
 2. **Placeholder scan:** Search for the "No Placeholders" patterns above. Fix them.
 3. **Consistency:** Do names, signatures, and file paths match across tasks — and match the actual codebase? A function called `clearLayers()` in Task 3 but `clearFullLayers()` in Task 7 is a bug.
-4. **Test mapping:** Is every unit in the test plan's Unit Test Coverage owned by exactly one task?
+4. **Test mapping:** Is every row in the test plan's Automated Coverage owned by exactly one task? Does every task's Re-run list name real test classes that exist in the target?
 
 Fix issues inline and move on. If a spec requirement has no task, add the task.
 

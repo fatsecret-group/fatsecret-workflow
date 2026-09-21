@@ -46,7 +46,7 @@ Run this at Step 1 and present **one MCP readiness table** to the user before pr
 - `proxyman` — runtime network capture in `validate-test-plan` Phase 3. Without it, R cases needing capture stay PUNTED to manual QA.
 - `testsecret` — TestSecret, the authoritative case library: Step 4 case upload + Step 7a result write-back. Unreachable → defer with an explicit note to the user, never silently skip. **Not configured at all → offer to set it up** with the setup guide (https://claude.ai/code/artifact/656220b8-5cc5-46de-8880-e330839cbb62): the user creates a token in the TestSecret web UI (Settings → API tokens, shown once), then `claude mcp add testsecret --transport http <mcp-url> --header "Authorization: Bearer <token>"`; the guide also covers verification and the common failures (proxy blocks the bare IP — use the AWS hostname; hostname rotates when the instance reboots).
 
-**Note on testing:** Tasks with testable logic are built with **TDD** — the engineer writes a failing unit test first, then implements until it passes, iterating with `xcodebuildmcp` (`build_sim` to compile, `test` to run). Test-quality rules: watch the test fail before making it pass; test observable behavior at the seams the test plan names — never internals or private methods; expected values come from an independent source of truth (a known-good literal, the spec), never recomputed the way the code computes them; one slice at a time — one test, one minimal implementation, repeat. The unit-test scope for the feature is defined in the test plan's **Unit Test Coverage** section. Per-task verification — including re-running the task's unit tests — is owned by `review-task`. UI tests and snapshot tests are out of scope; the unit test target is `Calorie Counter Tests`.
+**Note on testing:** Tasks with testable logic are built with **TDD** — the engineer writes a failing test first (unit for a pure rule, integration through the real store for a save/edit/reload/aggregate flow), then implements until it passes, iterating with `xcodebuildmcp` (`build_sim` to compile, `test_sim` to run). **Scope every run to the task's own test classes** via `extraArgs: ["-only-testing:Calorie Counter Tests/<TestClass>"]` — an unfiltered `test_sim` runs the whole target, and the full suite runs exactly twice per feature: Step 7b and after the 7c merge. Test-quality rules: watch the test fail before making it pass; test observable behavior at the seams the test plan names — never internals or private methods; expected values come from an independent source of truth (a known-good literal, the spec), never recomputed the way the code computes them; one slice at a time — one test, one minimal implementation, repeat. The automated scope for the feature — unit and integration rows, each with the concrete error it prevents — is defined in the test plan's **Automated Coverage** section; tests are written only for those rows. Per-task verification — including re-running the task's tests — is owned by `review-task`. UI tests and snapshot tests are out of scope; both layers live in the `Calorie Counter Tests` target.
 
 ## Workflow at a Glance
 
@@ -56,7 +56,7 @@ Step 1: Introduction        — collect input, pick track, confirm output folder
   └─ Full Track:
      Step 2: Story Analysis      — understand stories + explore code [skip if no stories]
      Step 3: Design Exploration  — architecture decisions, grounded in real code; adversarial design challenge; implementation Q&A
-     Step 4: Test Plan           — manual QA + unit-test coverage; mandatory adversarial coverage challenge
+     Step 4: Test Plan           — manual QA + automated coverage (unit / integration); mandatory adversarial coverage challenge
      Step 5: Execution Plan      — execution checklist (default) or full implementation plan (when triggered)
      Step 6: Build               — execute each task; review-task gates every commit
      Step 7: Verify & Ship       — blocking test-plan verification + finish branch
@@ -145,7 +145,7 @@ Present this to the user and collect input:
 >
 > **Analyze** → understand stories, explore code for hidden impacts
 > **Design** → architecture decisions grounded in the real code (adversarial design challenge, then implementation Q&A)
-> **Test Plan** → define acceptance criteria + unit-test coverage (adversarial coverage challenge)
+> **Test Plan** → define acceptance criteria + automated coverage (adversarial coverage challenge)
 > **Plan** → execution checklist (or a full plan for complex work)
 > **Build** → implement (TDD unit tests), review each task, commit
 >
@@ -270,7 +270,7 @@ Render it with the **`archify` skill** — do not hand-author SVG or use real Me
 
 Uses the story-analysis output (if available) and design exploration output as input.
 
-The test plan defines both the **manual QA acceptance cases** and a separate **Unit Test Coverage** section (the deterministic, non-UI units that get TDD unit tests in Step 6; target `Calorie Counter Tests`, no UI/snapshot tests). Before the plan is finalized, `write-test-plan` runs a **mandatory devil's-advocate coverage challenge** over the whole draft (manual + unit) — Codex when available, a fresh-context subagent otherwise; the gate itself is not skippable.
+The test plan defines both the **manual QA acceptance cases** and a separate **Automated Coverage** section — a Unit layer for pure rules and an Integration layer for flows through the real store, each row naming the concrete error it prevents; these become the TDD tests in Step 6 (target `Calorie Counter Tests`, no UI/snapshot tests). Before the plan is finalized, `write-test-plan` runs a **mandatory devil's-advocate coverage challenge** over the whole draft (manual + unit) — Codex when available, a fresh-context subagent otherwise; the gate itself is not skippable.
 
 Save output to `docs/plans/<feature-name>/test-plan.html`.
 
@@ -285,7 +285,7 @@ Wait for human confirmation before proceeding. **After confirmation**, `write-te
 
 Uses all prior outputs (story-analysis, design, test plan) as input.
 
-**Default: an Execution Checklist, not a separate document.** For most features, `writing-plans` produces a lightweight checklist appended to `design.html` — one entry per task: title, exact Files (+ Figma nodeId for UI files), the unit tests it owns (from the test plan's Unit Test Coverage), its acceptance point, and the standard Implement → Review → Commit steps. **No code blocks** — implementers read the real files at task time.
+**Default: an Execution Checklist, not a separate document.** For most features, `writing-plans` produces a lightweight checklist appended to `design.html` — one entry per task: title, exact Files (+ Figma nodeId for UI files), the automated tests it owns (from the test plan's Automated Coverage), its acceptance point, and the standard Implement → Review → Commit steps. **No code blocks** — implementers read the real files at task time.
 
 **Write a full `implementation-plan.html` only when any trigger holds:** destructive migration; multiple subsystems; tasks will be dispatched to subagents; the user asks for one.
 
@@ -310,7 +310,7 @@ Before starting each new task, run `git status` to confirm the prior task commit
 > **▶ Task N — \<title\>**
 > - **Goal**: the observable outcome this task delivers — its acceptance point
 > - **Files**: the declared Files list (+ Figma nodeId for UI files)
-> - **Tests**: the unit tests this task owns, or "none — pure UI"
+> - **Tests**: the unit / integration tests this task owns, or "none — pure UI"; plus its Re-run list of existing test classes
 
 This is the checklist entry re-read aloud, not a re-plan: it re-anchors on the artifact at every task boundary (the same discipline Invariant 5 applies after compaction) and gives the human a glanceable checkpoint — a surprising brief gets caught before code is written, not at review. If what you were about to do doesn't match the brief, stop and re-read the checklist instead of improvising. Delegated tasks carry the same brief at the top of the dispatch prompt.
 
@@ -352,7 +352,7 @@ After the human resolves the report, the skill records the outcome to TestSecret
 
 **Condition**: Always.
 
-**Evidence before claims.** Run the full unit-test suite fresh (`xcodebuildmcp` `test`, target `Calorie Counter Tests`) and read the output — the per-task gates already ran each task's tests; this confirms the whole suite is green before shipping. Any completion claim ("tests pass", "build succeeds", "bug fixed") is made only after its verification command has run *in this session* with output confirming it — no "should pass", no extrapolating from an earlier run, no trusting a subagent's success report without reading the diff. If the target can't be built/run (e.g., a non-app worktree), surface that rather than silently skipping.
+**Evidence before claims.** Run the full `Calorie Counter Tests` target fresh (`xcodebuildmcp` `test_sim`, unfiltered — unit and integration together) and read the output — the per-task gates already ran each task's tests; this confirms the whole suite is green before shipping. Any completion claim ("tests pass", "build succeeds", "bug fixed") is made only after its verification command has run *in this session* with output confirming it — no "should pass", no extrapolating from an earlier run, no trusting a subagent's success report without reading the diff. If the target can't be built/run (e.g., a non-app worktree), surface that rather than silently skipping.
 
 ### 7c. Finish branch
 

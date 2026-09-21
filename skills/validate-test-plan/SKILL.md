@@ -22,7 +22,7 @@ Before verifying anything, tag each case (or sub-clause, where they differ) by *
 
 | Class | Meaning | What counts as proof |
 |-------|---------|----------------------|
-| **U** — unit-verifiable | deterministic, non-UI logic | a unit test in `Calorie Counter Tests` asserting this clause, run fresh in this session, green |
+| **U** — test-verifiable | deterministic, non-UI logic or a flow through the real store | a unit or integration test in `Calorie Counter Tests` asserting this clause, run fresh in this session, green |
 | **S** — statically traceable | outcome readable from code (payload construction, log format, navigation wiring) | a `file:line` evidence chain per sub-clause: entry point → logic → observable outcome |
 | **R** — runtime-only | observable only with the app running (network capture, UI behavior, timing) | a runtime observation (Phase 3), or an explicit punt |
 | **X** — externally dependent | cross-platform parity, backend behavior, third-party dashboards | NOT verifiable from this repo — always punted, never graded from local code |
@@ -48,7 +48,7 @@ Two real misses this guards, both graded VERIFIED(Unit) off a green deriver test
 
 ## Phase 1 — Associate cases with tasks (or code)
 
-- **With workflow context**: map each case to the task that owns it — via the checklist/plan's Unit tests and Files fields and the git history of those files. **A case no task owns is itself a finding** (coverage gap), reported with the story/design item it came from.
+- **With workflow context**: map each case to the task that owns it — via the checklist/plan's Tests and Files fields and the git history of those files. **A case no task owns is itself a finding** (coverage gap), reported with the story/design item it came from.
 - **Standalone**: map each case to the code area that would implement it — cite what the search found, or that nothing was found.
 
 ## Phase 2 — Refute-first verification
@@ -57,7 +57,7 @@ Verify in batches small enough that the last case gets the same scrutiny as the 
 
 The framing is adversarial: **try to show the case is NOT satisfied.** Per sub-clause, the verdict is one of:
 
-- **VERIFIED** — evidence attached: U → the named unit test + its fresh run output; S → the `file:line` chain
+- **VERIFIED** — evidence attached: U → the named test + its fresh run output **+ the assertion's expected value shown against its independent source** (the design's input → output example, the test-plan row, the API/data contract); S → the `file:line` chain. A green test whose expected value has no source outside the implementation proves only that code and test agree — implementation and test may share one misunderstanding — and it lands as PARTIAL with "expected value unsourced" for the human to judge
 - **PARTIAL** — some sub-clauses verified; names exactly which are not, and why
 - **NOT-FOUND** — no implementing code located; the searches tried are listed
 - **PUNTED** — R/X: names the runtime step or external confirmation that would verify it (e.g. "Proxyman capture of `trackPurchase` during a promo purchase"; "Android event JSON for the type comparison")
