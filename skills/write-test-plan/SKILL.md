@@ -89,7 +89,7 @@ The section has two layers, each its own table:
 - Portion / unit conversion, nutrition arithmetic, date normalisation and day/week attribution
 - Parsers, serializers, mappers
 - Validation and threshold rules; state-transition logic (flag/counter changes, upgrade-path logic)
-- View model / store state logic (dirty state, in-flight dedupe, failure reverts, ordering and staleness), asserted on the resulting observable state — never on which mock method was called
+- View model / store state logic (dirty state, in-flight dedupe, failure reverts, ordering and staleness), asserted on the resulting observable state — never on which mock method was called. A view model's declared output closures (`onReloadTable`, `onScrollToCurrentMeal`, …) are part of its observable state: asserting which fired, how often, and in what order is allowed
 
 **Integration** — a flow through several real components where the risk is in their combination, not in any one function. Runs against the real persistence layer (a test store, not mocks of it — the existing pattern is `FoodJournalSaveContractTests`):
 - Create / edit → save → release the in-memory object → reload from storage → fields intact
@@ -101,7 +101,7 @@ Put a behavior in the **lowest layer that can observe it**: a unit test for a pu
 
 For each row, record: the behavior → the assertion (expected value from an independent source: the design's input → output example, the API/data contract, a known-good literal — never recomputed the way the code will compute it) → **Prevents**: the concrete real error this test would catch if it did not exist → which Item (from story-analysis) it backs. **A row whose Prevents cannot be filled with a specific error is dropped**, not kept "for coverage".
 
-**Not in this section:** getter/setter or pass-through checks, tests that only assert a method was called, behavior the framework or language already guarantees, UI tests and snapshot tests.
+**Not in this section:** getter/setter or pass-through checks, tests that only assert a method was called, behavior the framework or language already guarantees, UI tests and snapshot tests. **Presentation math is not a business rule, even once it has been lifted into a pure struct:** layout geometry (origins, widths, text scale, collision/overflow), colour interpolation, corner roles, and source-grepping purity guards stay out of the Unit layer — the Figma comparison in `review-task` and manual QA own them. The line is: a wrong answer here gives the user bad *data* or a broken *flow* → Unit; a wrong answer here gives the user a misplaced or miscoloured *pixel* → not here.
 
 This section is the source `writing-plans` reads to decide which task owns which automated tests (TDD, per task).
 
@@ -113,7 +113,7 @@ This section is the source `writing-plans` reads to decide which task owns which
 2. Frame Codex as a **picky devil's advocate** whose only job is to attack the coverage. Send it the draft cases + automated coverage plus the story-analysis / design inputs, and ask it to find:
    - **Manual QA gaps**: missing entry points, account/market dimensions, edge/empty states, upgrade-path scenarios, navigation/persistence holes
    - **Automated-coverage gaps**: rules with no assertion, untested boundary values, error paths, false confidence (a "covered" unit whose real risk lives between components — belongs in Integration), a save/edit/cancel/delete/aggregate flow with no integration row
-   - **Cost-only rows**: a Prevents that names no concrete error, a rule asserted at both layers, an expected value derived the way the implementation computes it, a row that would break on a harmless refactor
+   - **Cost-only rows**: a Prevents that names no concrete error, a rule asserted at both layers, an expected value derived the way the implementation computes it, a row that would break on a harmless refactor, a presentation-math row (geometry, colour, corner role, purity guard) that the "Not in this section" rule already excludes
    - **Wrong/redundant cases**: cases that are duplicated, assert the wrong thing, or cover a dimension the feature doesn't actually pass through
    - **Non-actionable cases**: cases a QA engineer could not execute as written (missing preconditions, vague steps, unobservable expected results)
 3. Evaluate each challenge with project context — accept real gaps, push back (with reasoning) on speculative ones. Iterate via `mcp__codex__codex-reply`; keep the thread.
