@@ -1,13 +1,13 @@
 ---
 name: writing-plans
-description: Use when a confirmed design needs to be turned into an executable task breakdown — produces the default Execution Checklist (appended to design.html) or a full implementation-plan.html for complex work
+description: Use when a confirmed design needs to be turned into an executable task breakdown — produces the Execution Checklist appended to design.html, the workflow's single plan artifact, with per-task detail scaled to the work
 ---
 
 # Writing Plans
 
 ## Overview
 
-Turn a confirmed design + test plan into an executable task breakdown. The default output is a lightweight **Execution Checklist**; write a full implementation plan only when the work's complexity demands one (see "Which Output?").
+Turn a confirmed design + test plan into an executable task breakdown. The output is a lightweight **Execution Checklist** appended to `design.html` — the only plan artifact; a task that needs more carries the detail inside its own entry (see "One Artifact").
 
 Assume the implementer is a skilled developer who knows almost nothing about this codebase — every task names its exact files, tests, and acceptance point. But do NOT front-load code: implementers read the real files at task time. Plans that embed large code blocks go stale the moment the design shifts, and their API references are unverified until something compiles. DRY. YAGNI.
 
@@ -38,17 +38,14 @@ If you spot any of these: **STOP**. Do not start writing the plan. Name the ambi
 
 This does NOT apply to routine decisions, small features, or obvious choices. Use judgment: if a reasonable engineer could read the spec and proceed without questions, proceed. The protocol is for *high-stakes* ambiguity, not every micro-decision.
 
-## Which Output? Checklist vs Full Plan
+## One Artifact — Checklist with Per-Task Detail
 
-**Default — Execution Checklist**, appended to the feature's `design.html` as its final section. No separate document.
+The Execution Checklist, appended to the feature's `design.html` as its final section, is the **only** plan artifact. There is no separate implementation-plan document: a second artifact restating the design and the checklist is a divergence risk, not added safety.
 
-**Full `implementation-plan.html` only when any trigger holds:**
-- destructive migration (removing/replacing an existing subsystem)
-- multiple subsystems touched
-- tasks will be dispatched to subagents
-- the user asks for one
-
-State which output you chose and why in one sentence before writing it.
+**Per-task detail replaces the second document.** A task's entry grows richer — in place, inside the checklist — when any of these holds; say in one line which entries got detail and why:
+- **Dispatched to a subagent** → the entry must be self-contained for a fresh-context worker: interface signatures and the concrete test assertions for its TDD red step (actual XCTest; if the type under test doesn't exist yet, note the minimal stub needed so the test fails on the assertion, not on a missing symbol), within what "Code in Plans" allows.
+- **Destructive migration** → the entry carries its callsite list and old-path semantics per "Migration Discipline" — these were enumerated at design time under feature-workflow's grounding rule, so reference `design.html`'s migration notes rather than re-deriving them.
+- **The user asks** for more detail on a task.
 
 (Standalone use outside `fatsecret-workflow:feature-workflow`: save a markdown plan to `docs/plans/YYYY-MM-DD-<feature-name>.md`. User preferences for location/format override all defaults.)
 
@@ -67,8 +64,8 @@ Before defining tasks, map out which files will be created or modified and what 
 
 ## Code in Plans
 
-- **Execution Checklist: no code blocks at all.** Tasks name files, behaviors, interfaces, and test assertions.
-- **Full plan:** exact file paths, behavior descriptions, interface signatures, and concrete test assertions. Full code blocks ONLY for new small types and critical algorithms. Everything else: describe the behavior and name the APIs to use.
+- **Plain checklist entries: no code blocks at all.** Tasks name files, behaviors, interfaces, and test assertions.
+- **Detailed entries (dispatch / migration):** exact file paths, behavior descriptions, interface signatures, and concrete test assertions. Full code blocks ONLY for new small types and critical algorithms. Everything else: describe the behavior and name the APIs to use.
 - **Every API, type, or method a plan references must be verified to exist** — open the file in this session and cite the path. A signature copied from memory or an old doc is how hallucinated APIs get planned in.
 - **Implementers re-read the target files at task time.** The plan is a contract for behavior, not a source snapshot; where plan and code disagree at implementation time, read the code and flag the drift.
 
@@ -102,15 +99,7 @@ Append to `design.html` as a final section ("Execution Checklist"), using the sh
 
 **Task tracking is via the harness task list** (`TaskCreate` / `TaskUpdate`) — the document is the human-readable spec; live status lives in the task list.
 
-## Full Plan Document Format
-
-When a trigger fires, write `implementation-plan.html` as **self-contained HTML with a left-side sticky TOC** — copy the structure from the shared skeleton at `../feature-workflow/references/plan-doc-skeleton.html`. Render each task as a `.task-card`, its steps as an `<ol>` / labelled `<p>`s, code (where justified) as `<pre><code>`, and the commit gate as a `.gate` div. The `<nav id="toc">` lists every task.
-
-**Header** — every full plan opens with an `<h1>`, a `p.meta` line (**Goal** | **Architecture** | **Tech Stack** | **Inputs**: links to story-analysis / design / test-plan), and a `.callout` for agentic workers ("Execute task-by-task via `fatsecret-workflow:feature-workflow` Step 6. Each task ends with an explicit commit step.").
-
-**Task structure** — same fields as the checklist (Title / Files / Tests / Re-run / Acceptance / Steps), plus, where the "Code in Plans" rules justify it, interface signatures, concrete test assertions (actual XCTest for the TDD red step — if the type under test doesn't exist yet, note the minimal stub needed so the test fails on the assertion, not on a missing symbol), and full code blocks for new small types or critical algorithms. Migration tasks additionally carry their callsite list and old-path semantics per "Migration Discipline".
-
-### Knowledge Delta Check (in every task, checklist or full plan)
+## Knowledge Delta Check (in every task)
 
 After `review-task` returns `APPROVED` and before the commit: if this task's review surfaced a **human correction about how this codebase works**, or contradicted a line in `docs/plans/CODEBASE-KNOWLEDGE.md` (code wins — the file must be fixed), propose the addition/correction and ask the human — write only on an explicit yes. Otherwise skip silently. Never blocks the commit.
 
@@ -128,7 +117,7 @@ Every task must contain what an engineer needs to execute it. These are **plan f
 ## Remember
 
 - Exact file paths always; Figma nodeIds on every UI file
-- Checklist by default; full plan only on a trigger — and no code beyond what "Code in Plans" allows
+- One artifact — the checklist; dispatch and migration tasks carry their detail inside their own entry, and no code beyond what "Code in Plans" allows
 - Verify every referenced API/type exists before the plan names it
 - Commit + `TaskUpdate(completed)` only in the task's final step, after `review-task` returns APPROVED, staging exactly the declared Files
 - Tasks with testable logic get TDD steps (failing test → implement, target `Calorie Counter Tests`, runs scoped with `-only-testing:`); no UI/snapshot tests, no standalone build steps, no full-suite runs
@@ -152,6 +141,6 @@ Say: *"Execution checklist appended to `design.html`"* (or *"Plan saved to `<pat
 
 **When invoked standalone**, offer two options:
 1. **Inline (recommended)** — Execute the tasks in this session: review the plan critically first and raise concerns before starting, then follow each task's steps exactly in order, stopping to ask when blocked instead of guessing.
-2. **Subagent-Driven** — a full-plan trigger: if the output was a checklist, upgrade it to a full plan first. Dispatch a fresh subagent per task with **only the task's Implement step** (subagents never invoke `review-task`, ask the human, or commit — feature-workflow Invariant 1); verify each result against the task's acceptance point yourself by reading the diff — never trust a bare "success" report.
+2. **Subagent-Driven** — first make each dispatched task's entry self-contained (see "One Artifact"). Dispatch a fresh subagent per task with **only the task's Implement step** (subagents never invoke `review-task`, ask the human, or commit — feature-workflow Invariant 1); verify each result against the task's acceptance point yourself by reading the diff — never trust a bare "success" report.
 
 In either standalone mode, `review-task` is still the only path to commit and mark tasks complete.

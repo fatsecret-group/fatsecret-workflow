@@ -30,7 +30,7 @@ When the model running this workflow is a top-tier reasoning model and the harne
 
 - **Delegate DOWN: work whose spec already exists.** Read-only exploration in Steps 2–3 (the grounding rule's file verification, historical story search, hidden-impact sweeps, the grilling's "facts are looked up" legwork) — fan out read-only agents; only conclusions + `file:line` citations return to the orchestrator's context, never file dumps. In Step 6, mechanical execution of self-contained tasks (boilerplate, batch edits, tests whose assertions the plan already names). Where the harness offers per-agent model selection, use cheaper/lower-effort agents for mechanical work; when unsure, inherit the session model.
 - **NEVER delegate:** anything that talks to the human (grilling, gates, `AskUserQuestion`), design decisions and their synthesis, review verdict handling, and commits (Invariant 1: subagents never commit).
-- **Implementation dispatch (Step 6)** requires the full plan (existing trigger in Step 5) — and dispatches **only the task's Implement step**, never the full task text with its Review/Commit steps. The dispatch prompt must state: do not invoke `review-task`, do not ask the human, do not commit or `TaskUpdate` — implement, run the task's tests, and return a diff summary + test output. Pass *paths* to `design.html` / `CODEBASE-KNOWLEDGE.md`, don't re-summarize them into the prompt. Before invoking `review-task`, verify the files the subagent actually touched ⊆ the task's declared Files — the same discipline as the staged ⊆ Files commit rule. Review fixes may be re-dispatched, but the verdict, the human gate, and the commit stay with the orchestrator.
+- **Implementation dispatch (Step 6)** requires the task's checklist entry to be self-contained (`writing-plans` "One Artifact": interface signatures + concrete test assertions in the entry) — and dispatches **only the task's Implement step**, never the full task text with its Review/Commit steps. The dispatch prompt must state: do not invoke `review-task`, do not ask the human, do not commit or `TaskUpdate` — implement, run the task's tests, and return a diff summary + test output. Pass *paths* to `design.html` / `CODEBASE-KNOWLEDGE.md`, don't re-summarize them into the prompt. Before invoking `review-task`, verify the files the subagent actually touched ⊆ the task's declared Files — the same discipline as the staged ⊆ Files commit rule. Review fixes may be re-dispatched, but the verdict, the human gate, and the commit stay with the orchestrator.
 - **Parallel dispatch** only for tasks with disjoint Files lists, and only with each subagent in its own worktree — parallel edits in the shared tree are forbidden: `review-task`'s diff and the post-commit clean-tree check cannot isolate one task's changes from another task's uncommitted ones. After the parallel tasks have each passed review and committed, the orchestrator integrates the worktree branches back into the feature branch **serially** — each integration is itself a commit under Invariant 1 (same-turn human OK), and the combined result gets a full test run before proceeding. Integrations must preserve the reviewed commits unchanged; if one requires conflict resolution or any content change, treat it as a worktree-changing task — `review-task` before its human-authorized commit (Invariant 2).
 
 ## Prerequisites Check
@@ -57,7 +57,7 @@ Step 1: Introduction        — collect input, pick track, confirm output folder
      Step 2: Story Analysis      — understand stories + explore code [skip if no stories]
      Step 3: Design Exploration  — architecture decisions, grounded in real code; adversarial design challenge; implementation Q&A
      Step 4: Test Plan           — manual QA + automated coverage (unit / integration); mandatory adversarial coverage challenge
-     Step 5: Execution Plan      — execution checklist (default) or full implementation plan (when triggered)
+     Step 5: Execution Plan      — execution checklist appended to design.html
      Step 6: Build               — execute each task; review-task gates every commit
      Step 7: Verify & Ship       — blocking test-plan verification + finish branch
 ```
@@ -92,8 +92,7 @@ All workflow artifacts for a feature are saved under a single folder:
 docs/plans/<feature-name>/
   ├── story-analysis.html       (from Step 2)
   ├── design.html               (from Step 3; includes the Execution Checklist section from Step 5)
-  ├── test-plan.html            (from Step 4)
-  └── implementation-plan.html  (from Step 5 — only when a full plan is triggered)
+  └── test-plan.html            (from Step 4)
 ```
 
 The feature folder name is confirmed with the user in Step 1.
@@ -124,8 +123,7 @@ Some efforts are too large to run as a single feature (a migration, a multi-subs
      ├── CLAUDE.md                      (project conventions: doc format, logging, …)
      └── phase-N-<name>/
          ├── design.html                (this phase — Step 3; includes its Execution Checklist)
-         ├── test-plan.html             (this phase — Step 4)
-         └── implementation-plan.html   (this phase — only when a full plan is triggered)
+         └── test-plan.html             (this phase — Step 4)
    ```
    For each phase, treat its subfolder as the feature folder and run **Steps 3–6 plus the per-phase verification (Step 7a + 7b)**; Step 7c (finish branch) is NOT per-phase — it follows point 4's timing. **Skip Step 2's story gathering** — the project-level analysis already covers it (only re-open it if a phase surfaces genuinely new stories). But Steps 3–5 STILL take the project-root `story-analysis.html` as their story-analysis input: treat it as the *"with story analysis"* path in Step 3, not *"explore from scratch."*
 3. **Design decisions are numbered and shared across phases** (`D1`, `D6`, …) so later phases reference earlier ones. Record them in each phase's `design.html` and cross-link.
@@ -146,7 +144,7 @@ Present this to the user and collect input:
 > **Analyze** → understand stories, explore code for hidden impacts
 > **Design** → architecture decisions grounded in the real code (adversarial design challenge, then implementation Q&A)
 > **Test Plan** → define acceptance criteria + automated coverage (adversarial coverage challenge)
-> **Plan** → execution checklist (or a full plan for complex work)
+> **Plan** → execution checklist
 > **Build** → implement (TDD unit tests), review each task, commit
 >
 > To get started — do you have **Shortcut Stories** (Story IDs or Iteration ID) or **Figma designs** to share?
@@ -287,7 +285,7 @@ Uses all prior outputs (story-analysis, design, test plan) as input.
 
 **Default: an Execution Checklist, not a separate document.** For most features, `writing-plans` produces a lightweight checklist appended to `design.html` — one entry per task: title, exact Files (+ Figma nodeId for UI files), the automated tests it owns (from the test plan's Automated Coverage), its acceptance point, and the standard Implement → Review → Commit steps. **No code blocks** — implementers read the real files at task time.
 
-**Write a full `implementation-plan.html` only when any trigger holds:** destructive migration; multiple subsystems; tasks will be dispatched to subagents; the user asks for one.
+**No separate plan document.** A task that will be dispatched to a subagent or performs a destructive migration carries its extra detail inside its own checklist entry — see `writing-plans` "One Artifact".
 
 **Folder placement for new files** is confirmed with the human ONCE, as a single batched `AskUserQuestion` (each new file: proposed folder + one-line rationale) — not per file.
 
@@ -316,7 +314,7 @@ This is the checklist entry re-read aloud, not a re-plan: it re-anchors on the a
 
 ### Execution
 
-Execute each task exactly as written in the execution checklist (or full plan). **The checklist/plan is the single source of truth for the steps inside a task.**
+Execute each task exactly as written in the execution checklist. **The checklist is the single source of truth for the steps inside a task.**
 
 Invariants Step 6 enforces on top of the checklist/plan:
 

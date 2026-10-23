@@ -1,6 +1,6 @@
 ---
 name: write-test-plan
-description: Use when user provides stories or feature requirements and needs a test plan written, before writing implementation plans
+description: Use when user provides stories or feature requirements and needs a test plan written, before writing the execution plan
 ---
 
 ## When to Use
