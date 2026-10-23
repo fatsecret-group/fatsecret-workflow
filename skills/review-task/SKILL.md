@@ -1,6 +1,6 @@
 ---
 name: review-task
-description: Use after implementing a task — one review pass covering spec compliance, UI verification against Figma (including regression on existing elements), Codex debate, unit tests, and simplification/style. Returns ISSUES for the caller's fix loop, or runs the mandatory human gate and returns APPROVED / ESCALATED. Does NOT commit or mark the task complete; the caller does that in the task's commit step.
+description: Use after implementing a task — one review pass covering a sensitive-area sweep, spec compliance, UI verification against Figma (including regression on existing elements), Codex debate, unit tests, and simplification/style. Returns ISSUES for the caller's fix loop, or runs the mandatory human gate and returns APPROVED / ESCALATED. Does NOT commit or mark the task complete; the caller does that in the task's commit step.
 ---
 
 ## When to Use
@@ -34,6 +34,7 @@ The reviewer performs these checks in order:
 **1. Spec Compliance**
 - Read the task description from the execution checklist / implementation plan — or, on the Lite Track, from the harness task (its declared files, acceptance point, unit-test scope, and Figma nodeId/waiver)
 - Read the changed files (use git diff)
+- **Sensitive-area sweep.** Map the diff's paths against the project's `REVIEW.md` ("Sensitive areas" table at the repo root — often git-excluded and local-only, so read it from disk, never from git history; its "Reviewer asks" question per area is the check to answer). No `REVIEW.md` → judge against the generic categories: local persistence & schema migrations, upgrade/version-gated paths, user-data & preference keys, auth/entitlements/payments, shared API or analytics contracts, cross-module shared models, build/signing/release config. For each touched area record: what changed there, and whether the task's declared Files and acceptance point justify it. Touching a sensitive area is allowed — but it always goes to the human, and is never closed by reviewer or Codex consensus.
 - Verify all requirements in the task are implemented — nothing missing, **nothing extra**: any change the task didn't ask for (adjacent "improvements", edits to working code, files outside the task's declared list) is an issue, not a bonus
 
 **2. UI Verification (only if UI was changed)**
@@ -92,6 +93,9 @@ The reviewer compiles all findings into a single report:
 ```
 ## Post-Task Review: [Task Name]
 
+### Sensitive Areas (opens the report, before any finding)
+[Every sensitive area the diff touches: area → what changed → justified by the task's expected scope? "None touched" in one line when the diff touches none. These items are the human's to decide at the gate — agent consensus never closes one.]
+
 ### 1. Spec Compliance: PASS / ISSUES
 ### 2. UI Verification: PASS / ISSUES / UNVERIFIED / N/A
 ### 3. Codex Review: PASS / ISSUES
@@ -118,9 +122,10 @@ If the task has **no Figma reference AND no unit-testable logic** (e.g. backend-
 **The skill's verdict is set by the human, not by the reviewer.**
 
 1. Post a concise summary to the user: what was implemented, what was reviewed, fixes made across rounds, the reviewer's recommendation.
-2. **Show the human what they are approving:** the diff summary — files changed plus the key hunks (for larger diffs, the exact `git diff`/`git show` command to view it) — and, verbatim, every item from the report's **Unverified** list. An Approve must be informed consent; approving with UNVERIFIED items is an explicit waiver and is recorded as such.
+2. **Show the human what they are approving — sensitive areas first:** every item from the report's **Sensitive Areas** list (area, what changed there, the scope justification) — this list is what the human's review attention is *for*, so it leads. Then the diff summary — files changed plus the key hunks (for larger diffs, the exact `git diff`/`git show` command to view it) — and, verbatim, every item from the report's **Unverified** list. For UI tasks, include the reviewer's simulator screenshot (path) beside the Figma reference so the human can eyeball the change themselves. An Approve must be informed consent; approving with UNVERIFIED items or touched sensitive areas is an explicit, recorded acknowledgement.
+   **What an Approve does NOT assert:** agent review plus green tests does not prove UI behaviour — the human QA pass (Step 7a's manual list) stays in the loop regardless of this Approve; say so when presenting a UI task.
 3. **Call `AskUserQuestion`** with:
-   - `question`: "Review for `<task name>` complete. Recommendation: APPROVE. Unverified: `<list or none>`. Approve commit + TaskUpdate?"
+   - `question`: "Review for `<task name>` complete. Recommendation: APPROVE. Sensitive areas: `<areas or none>`. Unverified: `<list or none>`. Approve commit + TaskUpdate?"
    - `header`: "Task review"
    - `options`: `"Approve"` (proceed to commit and TaskUpdate) / `"Escalate"` (surface issues, block commit, wait for instructions)
    - `multiSelect`: false
