@@ -29,7 +29,7 @@ claude plugins marketplace remove fatsecret-group/fatsecret-workflow
 
 ## Prerequisites
 
-No other plugins are required — the workflow's TDD rules, bug-diagnosis method, completion verification, and branch-finish procedure are built into the skills themselves.
+No other plugins are required — the workflow's verification rules, bug-diagnosis method, completion verification, and branch-finish procedure are built into the skills themselves.
 
 ### Optional MCP servers
 

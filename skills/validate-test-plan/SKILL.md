@@ -22,7 +22,7 @@ Before verifying anything, tag each case (or sub-clause, where they differ) by *
 
 | Class | Meaning | What counts as proof |
 |-------|---------|----------------------|
-| **U** — test-verifiable | deterministic, non-UI logic or a flow through the real store | a unit or integration test in `Calorie Counter Tests` asserting this clause, run fresh in this session, green |
+| **U** — machine-verifiable | deterministic, non-UI logic or a flow through the real store | a unit/integration test in `Calorie Counter Tests` asserting this clause, OR the feature's committed script in `verification/<feature>/` whose output (Proxyman capture or the script's own output) confirms it — either way run fresh in this session |
 | **S** — statically traceable | outcome readable from code (payload construction, log format, navigation wiring) | a `file:line` evidence chain per sub-clause: entry point → logic → observable outcome |
 | **R** — runtime-only | observable only with the app running (network capture, UI behavior, timing) | a runtime observation (Phase 3), or an explicit punt |
 | **X** — externally dependent | cross-platform parity, backend behavior, third-party dashboards | NOT verifiable from this repo — always punted, never graded from local code |

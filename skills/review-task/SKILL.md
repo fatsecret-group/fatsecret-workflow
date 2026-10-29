@@ -67,11 +67,12 @@ The reviewer debates with Codex directly to reach consensus on what issues exist
 - Debate until both sides agree on which issues are real
 - Push back on over-engineered suggestions — the right fix is the minimal correct fix
 
-**4. Unit Tests**
-- Run a **scoped** set with XcodeBuildMCP `test_sim`, one `-only-testing:Calorie Counter Tests/<TestClass>` entry in `extraArgs` per class. The set is read off the task's checklist entry, nothing else: the test classes under **Tests** plus the existing classes under **Re-run**. Selection was made and confirmed at Step 5 — do not add classes by judging what the change "could affect" or by reading what tests import, and never run the unfiltered target; the full suite runs once at Step 7b
-- A red test in the scoped set is a confirmed issue. If the change plainly touches code no listed class covers, report that as a finding (the plan's Re-run list is incomplete) rather than silently widening the run
+**4. Verification**
+- Execute exactly the task's **Verification** rows plus its **Re-run** list, read off the checklist entry — nothing else. Selection was made and confirmed at Step 5; do not add items by judging what the change "could affect", and never run the unfiltered test target
+- Per method: **unit/integration rows** → scoped `test_sim`, one `-only-testing:Calorie Counter Tests/<TestClass>` entry in `extraArgs` per class; **script rows** → run the committed script from `verification/<feature>/` and assert against the row's criteria on the Proxyman capture when available, else on the script's own input/output (state which in the report); **review-only rows** → resolve inside check 3's adversarial pass, and the report cites that verdict as the row's evidence
+- A red test, a script output that misses its criteria, or a review-only row check 3 could not clear is a confirmed issue. If the change plainly touches code no Verification/Re-run row covers, report that as a finding (the plan's list is incomplete) rather than silently widening the run
 - **Match the run to the pass.** The first pass of a task runs the full scoped set above. A fix-loop pass re-runs only the classes the fix touched. A pass whose diff since the last review is only renames, comments or docs runs **no tests and no simulator**: compile the app and the test target (`build-for-testing`), `git grep` for stale names, and report checks 2 and 4 as "not run — rename/comment-only pass, compile verified". This is not UNVERIFIED — a Swift rename that missed a site fails to compile — but the pass must state which kind it was and why
-- **No expectation drift.** Scan the diff for changes to existing tests: an edited expected value, a weakened assertion (`assertEqual` → `assertNotNil`, a removed check), a deleted or skipped test. Each one must trace to a D-decision change in `design.html` or a changed row in the test plan; otherwise it is a confirmed issue — the implementation was fitted to pass, not fixed. This applies with full force inside the review-fix loop, where the pressure to go green is highest
+- **No expectation drift.** Scan the diff for changes to existing tests, verification scripts, or their fixtures: an edited expected value, a weakened assertion (`assertEqual` → `assertNotNil`, a removed check), a deleted or skipped test, a re-recorded fixture. Each one must trace to a D-decision change in `design.html` or a changed row in the test plan; otherwise it is a confirmed issue — the implementation was fitted to pass, not fixed. This applies with full force inside the review-fix loop, where the pressure to go green is highest
 - If the test target cannot be built/run (e.g., a worktree without the Xcode project), report this check as **UNVERIFIED** — never as passed
 
 **5. Simplification & Style**
@@ -99,7 +100,7 @@ The reviewer compiles all findings into a single report:
 ### 1. Spec Compliance: PASS / ISSUES
 ### 2. UI Verification: PASS / ISSUES / UNVERIFIED / N/A
 ### 3. Codex Review: PASS / ISSUES
-### 4. Unit Tests: PASS / ISSUES / UNVERIFIED
+### 4. Verification: PASS / ISSUES / UNVERIFIED
 ### 5. Simplification & Style: PASS / ISSUES
 [Details per check — every PASS must cite the evidence that backs it: the exact command / tool call and its result (test output, screenshot path, Figma node compared), and every UNVERIFIED must state why it could not run. A PASS with no evidence is not a PASS.]
 

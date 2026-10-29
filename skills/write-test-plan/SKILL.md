@@ -30,7 +30,7 @@ Use `example-test-plan.csv` (in this skill's directory) as the reference for the
 
 **CSV alternative:** If the project's CLAUDE.md asks for CSV, or QA needs to import the plan into a spreadsheet, emit `test-plan.csv` matching `example-test-plan.csv` instead. HTML is the default; CSV is the explicit-request fallback.
 
-**Automated Coverage** is rendered as its own `<table>`, kept separate from the manual QA cases — they are different artifacts (see "Automated Coverage" below).
+**Verification Plan** is rendered as its own `<table>`, kept separate from the manual QA cases — they are different artifacts (see "Verification Plan" below).
 
 ## Writing Guidelines
 
@@ -77,42 +77,34 @@ Order test cases logically by feature area:
 5. Account/market-specific behavior
 6. Persistence and data integrity
 
-### Automated Coverage
+### Verification Plan
 
-Beyond the manual QA cases above, the test plan defines which behavior gets **automated tests**. Keep this in a **separate section/table** from the manual cases — the two are different artifacts: manual cases are executed by a human against the running app; automated tests are code written alongside the implementation (TDD) and run by `xcodebuildmcp test_sim`. Both layers below live in the **`Calorie Counter Tests`** target (already present in the project).
+Beyond the manual QA cases above, the test plan defines **how every deliverable is verified**: one table, one row per deliverable — deliverable → **criteria** (the observable result that proves it works) → **method**. This table is confirmed with the human before the plan is approved, is what Step 6 tasks execute, and is what `review-task` re-runs.
 
-**Coverage is chosen by risk, not by structure.** The goal is not a test per class or per function. It is that every behavior which, if wrong, would silently give the user bad data or a broken flow has exactly one test that catches it. Fewer, sharper tests beat many.
+**Verification is chosen by risk, not by structure — and e2e beats unit.** Unit tests cost build minutes and are written ONLY where the answer itself can silently be wrong. Everything else is verified at the boundary it ships at. Methods, in order of preference:
 
-The section has two layers, each its own table:
+- **Script + fixture** — view models and anything with server interaction. A runnable script committed to `verification/<feature>/` in the repo drives the flow; with Proxyman available, assert on the captured request/response; without it, inspect the script's input and output directly. The script and its recorded fixture ARE the regression artifact — a throwaway script that isn't committed counts as unverified.
+- **Review-only** — mapping / assembly / pass-through model code: a Codex (or advisor) review is the verification; the recorded review verdict is the evidence. No test written.
+- **Unit test** (`Calorie Counter Tests`) — ONLY for wrong-answer-is-a-bug logic: calculations, unit/portion conversion, percentage and date arithmetic, state transitions (flag/counter changes, upgrade paths). A mapper or view-model wiring does NOT qualify. Asserted on observable results from an independent source of truth, written failing-first.
+- **Integration test** (real store, existing pattern `FoodJournalSaveContractTests`) — only when the deliverable itself is a persistence contract (save → release → reload → intact; cancel leaves stored state unchanged).
+- **Manual QA** — visual/UX behavior; it lives in the manual cases table above, not here.
 
-**Unit** — pure computation and explicit business rules with a deterministic answer:
-- Portion / unit conversion, nutrition arithmetic, date normalisation and day/week attribution
-- Parsers, serializers, mappers
-- Validation and threshold rules; state-transition logic (flag/counter changes, upgrade-path logic)
-- View model / store state logic (dirty state, in-flight dedupe, failure reverts, ordering and staleness), asserted on the resulting observable state — never on which mock method was called. A view model's declared output closures (`onReloadTable`, `onScrollToCurrentMeal`, …) are part of its observable state: asserting which fired, how often, and in what order is allowed
-
-**Integration** — a flow through several real components where the risk is in their combination, not in any one function. Runs against the real persistence layer (a test store, not mocks of it — the existing pattern is `FoodJournalSaveContractTests`):
-- Create / edit → save → release the in-memory object → reload from storage → fields intact
-- Cancel after edit leaves the stored record and derived totals unchanged
-- Update is not implemented as insert; delete rolls derived totals back
-- A logged action → persisted row → daily / weekly aggregate
-
-Put a behavior in the **lowest layer that can observe it**: a unit test for a pure rule, an integration test only when the bug would live between components. Do not write the same rule at both layers.
+One method per row (the cheapest that can observe the failure). The goal is that every behavior which, if wrong, would silently give the user bad data or a broken flow has exactly one verification that catches it.
 
 For each row, record: the behavior → the assertion (expected value from an independent source: the design's input → output example, the API/data contract, a known-good literal — never recomputed the way the code will compute it) → **Prevents**: the concrete real error this test would catch if it did not exist → which Item (from story-analysis) it backs. **A row whose Prevents cannot be filled with a specific error is dropped**, not kept "for coverage".
 
 **Not in this section:** getter/setter or pass-through checks, tests that only assert a method was called, behavior the framework or language already guarantees, UI tests and snapshot tests. **Presentation math is not a business rule, even once it has been lifted into a pure struct:** layout geometry (origins, widths, text scale, collision/overflow), colour interpolation, corner roles, and source-grepping purity guards stay out of the Unit layer — the Figma comparison in `review-task` and manual QA own them. The line is: a wrong answer here gives the user bad *data* or a broken *flow* → Unit; a wrong answer here gives the user a misplaced or miscoloured *pixel* → not here.
 
-This section is the source `writing-plans` reads to decide which task owns which automated tests (TDD, per task).
+This section is the source `writing-plans` reads to assign each task its Verification rows.
 
 ## Coverage Challenge (devil's advocate) — mandatory
 
-**Type: Rigid gate. Do not skip, do not rationalize past it.** Before the test plan is finalized and written out, the coverage MUST survive an adversarial review — by Codex when available, by a fresh-context subagent otherwise (see fallback below). Run it on the **draft coverage** — both the manual QA cases AND the Automated Coverage section — before saving `test-plan.html`:
+**Type: Rigid gate. Do not skip, do not rationalize past it.** Before the test plan is finalized and written out, the coverage MUST survive an adversarial review — by Codex when available, by a fresh-context subagent otherwise (see fallback below). Run it on the **draft coverage** — both the manual QA cases AND the Verification Plan — before saving `test-plan.html`:
 
 1. Open a Codex session with `mcp__codex__codex`, configured `cwd` = project root, `sandbox: read-only`, `approval-policy: never`.
-2. Frame Codex as a **picky devil's advocate** whose only job is to attack the coverage. Send it the draft cases + automated coverage plus the story-analysis / design inputs, and ask it to find:
+2. Frame Codex as a **picky devil's advocate** whose only job is to attack the coverage. Send it the draft cases + verification plan plus the story-analysis / design inputs, and ask it to find:
    - **Manual QA gaps**: missing entry points, account/market dimensions, edge/empty states, upgrade-path scenarios, navigation/persistence holes
-   - **Automated-coverage gaps**: rules with no assertion, untested boundary values, error paths, false confidence (a "covered" unit whose real risk lives between components — belongs in Integration), a save/edit/cancel/delete/aggregate flow with no integration row
+   - **Verification gaps**: a deliverable with no row, criteria that nothing can observe, a method too weak for its risk (review-only on calculation logic, a script that checks the happy path but not the failure the criteria name), a persistence flow with no integration row, a committed-fixture claim with no fixture
    - **Cost-only rows**: a Prevents that names no concrete error, a rule asserted at both layers, an expected value derived the way the implementation computes it, a row that would break on a harmless refactor, a presentation-math row (geometry, colour, corner role, purity guard) that the "Not in this section" rule already excludes
    - **Wrong/redundant cases**: cases that are duplicated, assert the wrong thing, or cover a dimension the feature doesn't actually pass through
    - **Non-actionable cases**: cases a QA engineer could not execute as written (missing preconditions, vague steps, unobservable expected results)
@@ -135,15 +127,15 @@ The team's manual QA cases live in **TestSecret** (the `testsecret` MCP server).
 
 Reach this point only after the mandatory **Coverage Challenge** above has resolved against the draft coverage.
 
-1. Save the test plan (with the Automated Coverage section) to the feature's output directory (see feature-workflow Output Directory rule) as `test-plan.html` (or `test-plan.csv` per the fallback above)
-2. Present a summary to the user: total manual cases, automated rows per layer (unit / integration), coverage areas, and the gaps the Codex challenge surfaced + how they were resolved
-3. Ask user to review and approve before proceeding to `writing-plans`
+1. Save the test plan (with the Verification Plan section) to the feature's output directory (see feature-workflow Output Directory rule) as `test-plan.html` (or `test-plan.csv` per the fallback above)
+2. Present a summary to the user: total manual cases, verification rows per method (script / review-only / unit / integration), coverage areas, and the gaps the Codex challenge surfaced + how they were resolved
+3. Ask user to review and approve — **present the Verification Plan as ONE table in ONE batch confirmation** (the criteria and method per deliverable are the human's call; they correct individual rows in their reply — never ask about rows one at a time) — before proceeding to `writing-plans`
 4. **Upload the approved cases to TestSecret** (see below)
-5. The approved test plan becomes the acceptance criteria for implementation — its Automated Coverage section drives the per-task TDD steps in `writing-plans`
+5. The approved test plan becomes the acceptance criteria for implementation — its Verification Plan drives each task's verify step in `writing-plans`
 
 ### Upload to TestSecret (after approval)
 
-Upload the **manual QA cases only** — the Automated Coverage section stays in the repo (it drives TDD, not manual QA).
+Upload the **manual QA cases only** — the Verification Plan stays in the repo (it drives implementation verification, not manual QA).
 
 1. **Preflight**: call `whoami` on the `testsecret` MCP. If the server is unreachable, tell the user and record the deferred upload in the test plan — never silently skip. If the MCP is not configured at all, offer to set it up with the guide at https://claude.ai/code/artifact/656220b8-5cc5-46de-8880-e330839cbb62.
 2. **Section**: `list_sections`; reuse the section named after the feature, or `create_section` for it.

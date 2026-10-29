@@ -11,7 +11,7 @@ Turn a confirmed design + test plan into an executable task breakdown. The outpu
 
 Assume the implementer is a skilled developer who knows almost nothing about this codebase — every task names its exact files, tests, and acceptance point. But do NOT front-load code: implementers read the real files at task time. Plans that embed large code blocks go stale the moment the design shifts, and their API references are unverified until something compiles. DRY. YAGNI.
 
-**Project reality — unit + integration tests via TDD, no UI tests.** The project has one test target (`Calorie Counter Tests`) holding both layers. Tasks that own rows in the test plan's Automated Coverage follow **TDD**: write the failing test first (unit for a pure rule, integration through the real store for a flow), then implement until it passes — iterating with `xcodebuildmcp` (`build_sim` to compile, `test_sim` scoped with `-only-testing:` to the task's own test classes) until both compile cleanly and tests are green. Never run the whole target inside a task — the full suite belongs to Step 7b. UI tests and snapshot tests stay out of scope; pure-UI tasks with no testable logic keep the plain Implement step. The automated scope for a feature comes from the **Automated Coverage** section of its `test-plan.html` — tasks write those rows and nothing beyond them. All downstream verification (including re-running the task's tests) is owned by `review-task`. Plans MUST NOT prescribe UI-test-writing steps or standalone build steps.
+**Project reality — deliverable criteria over unit tests.** Every task's verification comes from the test plan's **Verification Plan**: one row per deliverable (criteria → method), confirmed by the human. Methods: **script + fixture** in `verification/<feature>/` (view models / server interaction; assert on the Proxyman capture when available, else on the script's own input/output), **review-only** (mapping/assembly model code — the Codex/advisor verdict is the evidence), **unit test** ONLY for wrong-answer-is-a-bug logic (calculations, conversions, state transitions; written failing-first, `test_sim` scoped with `-only-testing:` — never run the whole target), **integration test** only for persistence contracts. UI tests and snapshot tests stay out of scope; pure-UI tasks verify via `review-task`'s simulator pass. Tasks execute their own rows and nothing beyond them; downstream re-verification is owned by `review-task`. Plans MUST NOT prescribe UI-test-writing steps or standalone build steps.
 
 **Commit timing.** Each task MUST end with an explicit "Commit & mark complete" step. The checklist/plan is the single source of truth for when commits happen.
 
@@ -43,7 +43,7 @@ This does NOT apply to routine decisions, small features, or obvious choices. Us
 The Execution Checklist, appended to the feature's `design.html` as its final section, is the **only** plan artifact. There is no separate implementation-plan document: a second artifact restating the design and the checklist is a divergence risk, not added safety.
 
 **Per-task detail replaces the second document.** A task's entry grows richer — in place, inside the checklist — when any of these holds; say in one line which entries got detail and why:
-- **Dispatched to a subagent** → the entry must be self-contained for a fresh-context worker: interface signatures and the concrete test assertions for its TDD red step (actual XCTest; if the type under test doesn't exist yet, note the minimal stub needed so the test fails on the assertion, not on a missing symbol), within what "Code in Plans" allows.
+- **Dispatched to a subagent** → the entry must be self-contained for a fresh-context worker: interface signatures and the concrete verification for each of its rows — for a unit/integration row the actual XCTest assertions for the failing-first step (if the type under test doesn't exist yet, note the minimal stub needed so the test fails on the assertion, not on a missing symbol); for a script row the script's expected input/output — within what "Code in Plans" allows.
 - **Destructive migration** → the entry carries its callsite list and old-path semantics per "Migration Discipline" — these were enumerated at design time under feature-workflow's grounding rule, so reference `design.html`'s migration notes rather than re-deriving them.
 - **The user asks** for more detail on a task.
 
@@ -91,11 +91,11 @@ Append to `design.html` as a final section ("Execution Checklist"), using the sh
 
 - **Title** — descriptive, referenced as "Task 3 (Target screen wiring)", never a bare "Task 3"
 - **Files** — Create/Modify with exact paths; Figma nodeId for UI files
-- **Tests** — which rows from the test plan's Automated Coverage this task owns (unit and/or integration, TDD), or "none (pure UI)"
-- **Re-run** — the existing test classes in `Calorie Counter Tests` that exercise the code this task's Files change, named explicitly (grep the test target for the types in Files while writing the plan), or "none". This list is decided here and confirmed at the Step 5 gate; `review-task` runs exactly it plus the task's own tests and makes no selection of its own
+- **Verification** — the rows from the test plan's Verification Plan this task owns: each deliverable's criteria + method (script+fixture / review-only / unit / integration), or "manual QA + review only (pure UI)"
+- **Re-run** — the existing test classes and verification scripts that exercise the code this task's Files change, named explicitly (grep the test target and `verification/` for the types in Files while writing the plan), or "none". This list is decided here and confirmed at the Step 5 gate; `review-task` runs exactly it plus the task's own verification and makes no selection of its own
 - **Acceptance** — the observable outcome that makes this task done
 - **Steps** — the standard cycle (write it once at the top of the section, not per task):
-  Implement (TDD red → green via `xcodebuildmcp`, `test_sim` scoped to the task's test classes; `figma-driven-implementation` for UI; compile cleanly, fix new warnings; no simulator run — that's `review-task`'s job) → `review-task` (one pass; the caller owns the fix loop, max 3 rounds) → Knowledge Delta Check (defined below) → Commit & `TaskUpdate(completed)` (stage exactly the declared Files; staged ⊆ Files; post-commit `git status` clean; same-turn human OK per feature-workflow Invariant 1)
+  Implement (`figma-driven-implementation` for UI; compile cleanly, fix new warnings; no simulator run — that's `review-task`'s job) → Verify per the entry's Verification rows (unit/integration rows failing-first then green, `test_sim` scoped; script rows run from `verification/<feature>/` and checked against the Proxyman capture or the script's own output; review-only rows resolve in `review-task`'s pass) → `review-task` (one pass; the caller owns the fix loop, max 3 rounds) → Knowledge Delta Check (defined below) → Commit & `TaskUpdate(completed)` (stage exactly the declared Files; staged ⊆ Files; post-commit `git status` clean; same-turn human OK per feature-workflow Invariant 1)
 
 **Task tracking is via the harness task list** (`TaskCreate` / `TaskUpdate`) — the document is the human-readable spec; live status lives in the task list.
 
@@ -120,7 +120,7 @@ Every task must contain what an engineer needs to execute it. These are **plan f
 - One artifact — the checklist; dispatch and migration tasks carry their detail inside their own entry, and no code beyond what "Code in Plans" allows
 - Verify every referenced API/type exists before the plan names it
 - Commit + `TaskUpdate(completed)` only in the task's final step, after `review-task` returns APPROVED, staging exactly the declared Files
-- Tasks with testable logic get TDD steps (failing test → implement, target `Calorie Counter Tests`, runs scoped with `-only-testing:`); no UI/snapshot tests, no standalone build steps, no full-suite runs
+- Every task verifies by its Verification rows: scripts + fixtures committed to `verification/<feature>/`, review-only for mapping code, unit tests only for wrong-answer-is-a-bug logic (failing-first, scoped `-only-testing:`); no UI/snapshot tests, no standalone build steps, no full-suite runs
 - Migration work follows Migration Discipline (comment-out first, per-callsite confirmation, behavioral equivalence)
 
 ## Self-Review
@@ -130,7 +130,7 @@ After writing the checklist/plan, look at the spec with fresh eyes and check aga
 1. **Spec coverage:** Can you point to a task for each requirement in the design + test plan? List any gaps.
 2. **Placeholder scan:** Search for the "No Placeholders" patterns above. Fix them.
 3. **Consistency:** Do names, signatures, and file paths match across tasks — and match the actual codebase? A function called `clearLayers()` in Task 3 but `clearFullLayers()` in Task 7 is a bug.
-4. **Test mapping:** Is every row in the test plan's Automated Coverage owned by exactly one task? Does every task's Re-run list name real test classes that exist in the target?
+4. **Verification mapping:** Is every row in the test plan's Verification Plan owned by exactly one task? Does every task's Re-run list name real test classes / verification scripts that exist?
 
 Fix issues inline and move on. If a spec requirement has no task, add the task.
 

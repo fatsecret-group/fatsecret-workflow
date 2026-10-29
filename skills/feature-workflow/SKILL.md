@@ -38,7 +38,7 @@ When the model running this workflow is a top-tier reasoning model and the harne
 Run this at Step 1 and present **one MCP readiness table** to the user before proceeding. (The sub-skills ship in this plugin — they need no availability check.) Startup detection is early warning, not a guarantee — an MCP alive now can be gone by Step 6, so the per-step preflights still own the real failure handling.
 
 **Required MCPs** (missing → report at Step 1; the user either fixes it now or explicitly accepts failing later at the step that needs it):
-- `xcodebuildmcp` — TDD in Step 6, per-task test runs in `review-task`, the 7b full-suite gate
+- `xcodebuildmcp` — builds, scoped test runs and the simulator pass in Step 6 / `review-task`
 - `figma` — only when the feature has UI work / Figma links (story-analysis, figma-driven-implementation, review-task UI verification)
 
 **Optional MCPs** (missing → note it in the table and apply the named fallback; never block):
@@ -46,7 +46,7 @@ Run this at Step 1 and present **one MCP readiness table** to the user before pr
 - `proxyman` — runtime network capture in `validate-test-plan` Phase 3. Without it, R cases needing capture stay PUNTED to manual QA.
 - `testsecret` — TestSecret, the authoritative case library: Step 4 case upload + Step 7a result write-back. Unreachable → defer with an explicit note to the user, never silently skip. **Not configured at all → offer to set it up** with the setup guide (https://claude.ai/code/artifact/656220b8-5cc5-46de-8880-e330839cbb62): the user creates a token in the TestSecret web UI (Settings → API tokens, shown once), then `claude mcp add testsecret --transport http <mcp-url> --header "Authorization: Bearer <token>"`; the guide also covers verification and the common failures (proxy blocks the bare IP — use the AWS hostname; hostname rotates when the instance reboots).
 
-**Note on testing:** Tasks with testable logic are built with **TDD** — the engineer writes a failing test first (unit for a pure rule, integration through the real store for a save/edit/reload/aggregate flow), then implements until it passes, iterating with `xcodebuildmcp` (`build_sim` to compile, `test_sim` to run). **Scope every run to the task's own test classes** via `extraArgs: ["-only-testing:Calorie Counter Tests/<TestClass>"]` — an unfiltered `test_sim` runs the whole target, and the full suite runs exactly twice per feature: Step 7b and after the 7c merge. Test-quality rules: watch the test fail before making it pass; test observable behavior at the seams the test plan names — never internals or private methods; expected values come from an independent source of truth (a known-good literal, the spec), never recomputed the way the code computes them; one slice at a time — one test, one minimal implementation, repeat. The automated scope for the feature — unit and integration rows, each with the concrete error it prevents — is defined in the test plan's **Automated Coverage** section; tests are written only for those rows. Per-task verification — including re-running the task's tests — is owned by `review-task`. UI tests and snapshot tests are out of scope; both layers live in the `Calorie Counter Tests` target.
+**Note on verification:** Every deliverable is verified by the method its **Verification Plan** row names (defined in Step 4, confirmed by the human): **script + fixture** committed to `verification/<feature>/` for view models and server interaction (assert on the Proxyman capture when available, else on the script's own input/output); **review-only** for mapping/assembly model code (the recorded Codex/advisor verdict is the evidence); **unit tests ONLY for wrong-answer-is-a-bug logic** — calculations, conversions, percentage/date arithmetic, state transitions — written failing-first and run scoped via `extraArgs: ["-only-testing:Calorie Counter Tests/<TestClass>"]`, never the unfiltered target; **integration tests** only for persistence contracts. Test-quality rules where tests exist: watch the test fail before making it pass; assert observable behavior, never internals; expected values come from an independent source of truth, never recomputed the way the code computes them. Per-task re-verification is owned by `review-task`. UI tests and snapshot tests are out of scope.
 
 ## Workflow at a Glance
 
@@ -69,9 +69,9 @@ Choose this in Step 1 when the work is a bug fix, a mechanical refactor, or a sm
 1. **Diagnose before touching code (bug fixes).** State the suspected triggering path/layer and confirm it with evidence — a reproduction, a code trace, or logs — before editing. If you cannot confirm which layer fires the behavior, say so and keep investigating; do not fix a hypothesis. (The **Diagnosis Method** below is the method.)
 2. **Minimal diff.** Fix only what the ticket describes. Never bundle changes to adjacent working code — "while I'm here" is a red flag.
 3. **Task list as the execution contract.** Create harness tasks (`TaskCreate`) for the fix steps — this replaces the plan document, so each task must carry what `review-task` will review against: the exact files it will touch, its acceptance point, its unit-test scope (if there's testable logic), and the Figma nodeId or human-granted waiver for UI changes.
-4. **Gated execution.** Each code task: implement (TDD if there's testable logic; `figma-driven-implementation` if UI) → `review-task` → human gate → commit per the Commit reliability rules in Step 6.
+4. **Gated execution.** Each code task: implement (failing-first unit test only if the fix is wrong-answer-is-a-bug logic; `figma-driven-implementation` if UI) → `review-task` → human gate → commit per the Commit reliability rules in Step 6.
 5. **Destructive changes** follow Invariant 4 (comment-out first, per-item confirmation, separate delete pass).
-6. **Close out.** After the final task's commit, run Step 7b (full-suite verification); if the fix lives on its own branch, also run Step 7c (finish branch). Step 7a does not apply — there is no test plan.
+6. **Close out.** After the final task's commit, if the fix lives on its own branch, run Step 7c (finish branch). Step 7a does not apply — there is no test plan.
 
 ### Diagnosis Method (Lite Track step 1)
 
@@ -125,7 +125,7 @@ Some efforts are too large to run as a single feature (a migration, a multi-subs
          ├── design.html                (this phase — Step 3; includes its Execution Checklist)
          └── test-plan.html             (this phase — Step 4)
    ```
-   For each phase, treat its subfolder as the feature folder and run **Steps 3–6 plus the per-phase verification (Step 7a + 7b)**; Step 7c (finish branch) is NOT per-phase — it follows point 4's timing. **Skip Step 2's story gathering** — the project-level analysis already covers it (only re-open it if a phase surfaces genuinely new stories). But Steps 3–5 STILL take the project-root `story-analysis.html` as their story-analysis input: treat it as the *"with story analysis"* path in Step 3, not *"explore from scratch."*
+   For each phase, treat its subfolder as the feature folder and run **Steps 3–6 plus the per-phase verification (Step 7a)**; Step 7c (finish branch) is NOT per-phase — it follows point 4's timing. **Skip Step 2's story gathering** — the project-level analysis already covers it (only re-open it if a phase surfaces genuinely new stories). But Steps 3–5 STILL take the project-root `story-analysis.html` as their story-analysis input: treat it as the *"with story analysis"* path in Step 3, not *"explore from scratch."*
 3. **Design decisions are numbered and shared across phases** (`D1`, `D6`, …) so later phases reference earlier ones. Record them in each phase's `design.html` and cross-link.
 4. **Settle branch strategy + Step-7 timing with the human at project start.** Phases commonly accumulate on one long-lived branch with the final finish-branch (Step 7c) run once at project end rather than per phase — but confirm this rather than assuming it; don't run a per-phase merge/PR unless the human asked for one.
 
@@ -145,7 +145,7 @@ Present this to the user and collect input:
 > **Design** → architecture decisions grounded in the real code (adversarial design challenge, then implementation Q&A)
 > **Test Plan** → define acceptance criteria + automated coverage (adversarial coverage challenge)
 > **Plan** → execution checklist
-> **Build** → implement (TDD unit tests), review each task, commit
+> **Build** → implement, verify each task per its deliverable criteria, review, commit
 >
 > To get started — do you have **Shortcut Stories** (Story IDs or Iteration ID) or **Figma designs** to share?
 
@@ -164,7 +164,7 @@ If neither holds, say nothing — proceed as a single feature run. Don't offer p
 
 When the threshold is met, use `AskUserQuestion` to offer the choice:
 - **Single feature run** — one pass of Steps 2–7, all artifacts in one folder.
-- **Phase mode** — one project-level story-analysis up front, then each phase run as its own pass (Steps 3–6 + 7a/7b).
+- **Phase mode** — one project-level story-analysis up front, then each phase run as its own pass (Steps 3–6 + 7a).
 
 If the user picks phase mode, record the decision + the phase breakdown in the project-root `CLAUDE.md` so every later phase run inherits it without re-asking. If the project is already set up in phases (a project-root `story-analysis.html` + `phase-*/` folders already exist), phase mode is already in effect — skip the question and proceed with the named phase.
 
@@ -204,7 +204,7 @@ Save output to `docs/plans/<feature-name>/story-analysis.html`.
 Do not present a final design until the interview has reached shared understanding — concretely, until every exit criterion holds:
 
 - **Every acceptance point names its verification mechanism** — a unit-test assertion, a Figma nodeId, a manual QA step for the test plan, or a measurable threshold. A criterion nothing can verify is renegotiated now, not discovered at Step 7a.
-- **Behaviors carry concrete input → expected-output examples** (edge and error cases included) from the scenario stress-tests, ready to become test-plan assertions — the human's examples are the independent source of truth TDD asserts against.
+- **Behaviors carry concrete input → expected-output examples** (edge and error cases included) from the scenario stress-tests, ready to become test-plan criteria — the human's examples are the independent source of truth every verification asserts against.
 - **A non-goals / out-of-scope list is recorded in `design.html`** — prohibitions are executable; "keep it minimal" is not.
 - **Known goal conflicts have a pre-ranked priority** ("when X conflicts with Y, prefer X"), captured with the relevant D-decision.
 - **Qualitative goals are converted** to a measurable threshold or explicitly marked "no threshold — human judges in QA"; never left as adjectives.
@@ -268,7 +268,7 @@ Follow the conventions in `references/code-graph.md` (in this skill's directory)
 
 Uses the story-analysis output (if available) and design exploration output as input.
 
-The test plan defines both the **manual QA acceptance cases** and a separate **Automated Coverage** section — a Unit layer for pure rules and an Integration layer for flows through the real store, each row naming the concrete error it prevents; these become the TDD tests in Step 6 (target `Calorie Counter Tests`, no UI/snapshot tests). Before the plan is finalized, `write-test-plan` runs a **mandatory devil's-advocate coverage challenge** over the whole draft (manual + unit) — Codex when available, a fresh-context subagent otherwise; the gate itself is not skippable.
+The test plan defines both the **manual QA acceptance cases** and a separate **Verification Plan** — one row per deliverable: criteria (the observable result that proves it) → method (script+fixture in `verification/<feature>/` / review-only / unit test for wrong-answer-is-a-bug logic / integration test for persistence contracts). **The human confirms the Verification Plan as one table in one batch** — the criteria and method per deliverable are the human's call, corrected per row in their reply, never asked one row at a time. Before the plan is finalized, `write-test-plan` runs a **mandatory devil's-advocate coverage challenge** over the whole draft (manual + verification) — Codex when available, a fresh-context subagent otherwise; the gate itself is not skippable.
 
 Save output to `docs/plans/<feature-name>/test-plan.html`.
 
@@ -283,7 +283,7 @@ Wait for human confirmation before proceeding. **After confirmation**, `write-te
 
 Uses all prior outputs (story-analysis, design, test plan) as input.
 
-**Default: an Execution Checklist, not a separate document.** For most features, `writing-plans` produces a lightweight checklist appended to `design.html` — one entry per task: title, exact Files (+ Figma nodeId for UI files), the automated tests it owns (from the test plan's Automated Coverage), its acceptance point, and the standard Implement → Review → Commit steps. **No code blocks** — implementers read the real files at task time.
+**Default: an Execution Checklist, not a separate document.** For most features, `writing-plans` produces a lightweight checklist appended to `design.html` — one entry per task: title, exact Files (+ Figma nodeId for UI files), the Verification rows it owns (from the test plan's Verification Plan), its acceptance point, and the standard Implement → Verify → Review → Commit steps. **No code blocks** — implementers read the real files at task time.
 
 **No separate plan document.** A task that will be dispatched to a subagent or performs a destructive migration carries its extra detail inside its own checklist entry — see `writing-plans` "One Artifact".
 
@@ -308,7 +308,7 @@ Before starting each new task, run `git status` to confirm the prior task commit
 > **▶ Task N — \<title\>**
 > - **Goal**: the observable outcome this task delivers — its acceptance point
 > - **Files**: the declared Files list (+ Figma nodeId for UI files)
-> - **Tests**: the unit / integration tests this task owns, or "none — pure UI"; plus its Re-run list of existing test classes
+> - **Verification**: the entry's Verification rows (criteria + method), or "manual QA + review only — pure UI"; plus its Re-run list
 
 This is the checklist entry re-read aloud, not a re-plan: it re-anchors on the artifact at every task boundary (the same discipline Invariant 5 applies after compaction) and gives the human a glanceable checkpoint — a surprising brief gets caught before code is written, not at review. If what you were about to do doesn't match the brief, stop and re-read the checklist instead of improvising. Delegated tasks carry the same brief at the top of the dispatch prompt.
 
@@ -335,7 +335,7 @@ When the design changes after tasks have been built (a new meeting decision, a r
 
 ## Step 7 — Verify & Ship
 
-Three sub-steps to close out the feature:
+Two sub-steps to close out the feature. **Evidence before claims** applies to both: any completion claim ("verified", "build succeeds", "bug fixed") is made only after its verification command has run *in this session* with output confirming it — no "should pass", no extrapolating from an earlier run, no trusting a subagent's success report without reading the diff.
 
 ### 7a. Test plan verification [blocking]
 
@@ -346,17 +346,11 @@ Validate implementation coverage against the test plan — refute-first, typed v
 
 After the human resolves the report, the skill records the outcome to TestSecret (Phase 5): a run whose per-case results carry the verdicts (`Dev-Verified` / `AI-Tested` / `Failed` / `Retest` / `Skipped`), with punted cases left `Untested` — that Untested set is QA's manual queue.
 
-### 7b. Verify before completion
-
-**Condition**: Always.
-
-**Evidence before claims.** Run the full `Calorie Counter Tests` target fresh (`xcodebuildmcp` `test_sim`, unfiltered — unit and integration together) and read the output — the per-task gates already ran each task's tests; this confirms the whole suite is green before shipping. Any completion claim ("tests pass", "build succeeds", "bug fixed") is made only after its verification command has run *in this session* with output confirming it — no "should pass", no extrapolating from an earlier run, no trusting a subagent's success report without reading the diff. If the target can't be built/run (e.g., a non-app worktree), surface that rather than silently skipping.
-
 ### 7c. Finish branch
 
 **Condition**: Always.
 
-With 7b green, determine the base branch (the branch this work forked from — typically `main`; confirm with the human if in doubt), then present exactly these options and execute the choice (merge/push still follow Invariant 1 — the human's same-turn choice is the OK):
+With 7a resolved, determine the base branch (the branch this work forked from — typically `main`; confirm with the human if in doubt), then present exactly these options and execute the choice (merge/push still follow Invariant 1 — the human's same-turn choice is the OK):
 
 > Implementation complete. What would you like to do?
 > 1. Merge back to `<base-branch>` locally
@@ -364,7 +358,7 @@ With 7b green, determine the base branch (the branch this work forked from — t
 > 3. Keep the branch as-is (I'll handle it later)
 > 4. Discard this work
 
-- **1 — Merge:** checkout base → `git pull --ff-only` (a pull that would create a merge commit stops here — surface it and ask) → merge → re-run the test suite on the merged result → only then clean up: worktree first (rules below), then `git branch -d`.
+- **1 — Merge:** checkout base → `git pull --ff-only` (a pull that would create a merge commit stops here — surface it and ask) → merge → re-run the feature's declared verification on the merged result (its test classes scoped + its `verification/<feature>/` scripts) → only then clean up: worktree first (rules below), then `git branch -d`.
 - **2 — PR:** `git push -u origin <branch>` and open the PR. Keep the worktree — it's needed to iterate on PR feedback.
 - **3 — Keep:** report the branch name and worktree path; touch nothing.
 - **4 — Discard:** list the branch, its commits, and the worktree that will be deleted; require the human to type `discard`; only then run worktree cleanup + `git branch -D`.
