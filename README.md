@@ -18,46 +18,47 @@ Claude Code plugin for the FatSecret delivery team — orchestrates the full fea
 
 **Update:**
 ```bash
-/plugin update fatsecret-workflow
+claude plugin marketplace update fatsecret-workflow
+claude plugin update fatsecret-workflow@fatsecret-workflow
 ```
 
 **Uninstall:**
 ```bash
 claude plugins uninstall fatsecret-workflow
-claude plugins marketplace remove fatsecret-group/fatsecret-workflow
+claude plugins marketplace remove fatsecret-workflow
 ```
 
 ## Prerequisites
 
 No other plugins are required — the workflow's verification rules, bug-diagnosis method, completion verification, and branch-finish procedure are built into the skills themselves.
 
-### Optional MCP servers
+### MCP servers and tools
 
-Some skills integrate with external tools via MCP. The full feature-workflow checks them at Step 1 and reports a readiness table: **XcodeBuildMCP is required** (and **Figma** when the feature has UI work) — a missing one is surfaced, never silently skipped. **Codex, Proxyman, and TestSecret are optional**, each with a defined fallback. Install the servers for the skills you use.
+Some skills integrate with external tools. The full feature-workflow checks them at Step 1 and reports a readiness table (MCP servers plus the Codex CLI): **XcodeBuildMCP is required** (and **Figma** when the feature has UI work) — a missing one is surfaced, never silently skipped. **Shortcut, Codex, Proxyman, and TestSecret are optional**, each with a defined fallback. Install what the skills you use need.
 
 | MCP Server | Used by | Purpose | Missing → |
 |------------|---------|---------|-----------|
-| [XcodeBuildMCP](https://github.com/getsentry/XcodeBuildMCP) | `run`, `review-task`, `feature-workflow` | Build, run, tests, UI automation | required — reported at Step 1 |
-| [Figma MCP](https://github.com/figma/figma-mcp) | `story-analysis`, `figma-driven-implementation`, `review-task` | Design-to-code workflow | required for UI features |
+| [XcodeBuildMCP](https://github.com/getsentry/XcodeBuildMCP) | `feature-workflow`, `review-task`, `validate-test-plan` | Build, scoped test runs, simulator UI automation | required — reported at Step 1 |
+| [Figma MCP](https://developers.figma.com/docs/figma-mcp-server/) | `story-analysis`, `figma-driven-implementation`, `review-task` | Design-to-code workflow | required for UI features |
 | [Shortcut MCP](https://www.npmjs.com/package/@shortcut/mcp) | `story-analysis`, `feature-workflow` | Read stories; search historical stories during design grilling; post the agreed decision summary to each story for QA | human pastes stories in / pastes the approved summary onto the stories |
-| [Codex MCP](https://github.com/openai/codex) | `feature-workflow` (design challenge), `write-test-plan` (coverage challenge), `review-task` (review debate) | Independent adversary for the three review gates | built-in `/code-review` (review-task) or a fresh-context subagent (design & coverage challenges) |
+| [Codex CLI](https://github.com/openai/codex) | `feature-workflow` (design challenge), `write-test-plan` (coverage challenge), `review-task` (review debate) | Independent adversary for the three review gates | built-in `/code-review` (review-task) or a fresh-context subagent (design & coverage challenges) |
 | [TestSecret](https://claude.ai/code/artifact/656220b8-5cc5-46de-8880-e330839cbb62) | `validate-test-plan` | Where QA keeps their test cases: Step 7a validates them and writes results back when they exist | Step 7a validates the dev side only, with a note |
-| [Proxyman MCP](https://proxyman.com) | `validate-test-plan` | Runtime network capture for runtime-only cases | those cases stay punted to manual QA |
+| [Proxyman MCP](https://proxyman.com) | `review-task`, `validate-test-plan` | Network capture for script-based verification and runtime-only cases | scripts assert on their own input/output; capture-only cases stay punted to manual QA |
 
 <details>
 <summary><strong>MCP setup instructions</strong></summary>
 
 #### Figma MCP
 
-Figma MCP is an Anthropic built-in integration. Enable it in Claude Code:
+The skills call the official Figma MCP server (`get_design_context`, `get_screenshot`). Add it, then sign in with `/mcp`:
 
 ```bash
-claude mcp add figma -- npx -y figma-developer-mcp --figma-api-key=YOUR_FIGMA_TOKEN
+claude mcp add --transport http figma https://mcp.figma.com/mcp
 ```
 
-Or get a token at https://www.figma.com/developers/api#access-tokens
-
 #### Shortcut MCP
+
+Shortcut now develops its MCP server only as a hosted server (`https://mcp.shortcut.com/mcp` — setup instructions there); the npm package below still works but is frozen. The skills name the npm package's tools (`stories-get-by-id`, `stories-search`, `stories-create-comment`, …).
 
 ```bash
 claude mcp add shortcut -- npx -y @shortcut/mcp@latest
@@ -92,22 +93,18 @@ brew install xcodebuildmcp
 
 Then add to Claude Code:
 ```bash
-claude mcp add xcodebuildmcp -- xcodebuildmcp
+claude mcp add xcodebuildmcp -- xcodebuildmcp mcp
 ```
 
-#### Codex MCP
+#### Codex
 
-Install globally:
+Install the CLI and sign in:
 ```bash
 npm install -g @openai/codex
+codex login
 ```
 
-Then add to Claude Code:
-```bash
-claude mcp add codex -- codex --mcp
-```
-
-Requires `OPENAI_API_KEY` environment variable.
+The workflow calls the CLI directly (`codex exec --sandbox read-only`, `codex review`) — no MCP server to register.
 
 </details>
 
@@ -124,6 +121,7 @@ Requires `OPENAI_API_KEY` environment variable.
 | Skill | Description |
 |-------|-------------|
 | `story-analysis` | Analyze Shortcut stories + Figma designs into executable items |
+| `writing-plans` | Turn the confirmed design into the Execution Checklist appended to `design.html` — one entry per task (files, verification rows, acceptance point) |
 | `write-test-plan` | Write the Verification Plan — dev's own test considerations, one row per deliverable (criteria → method), appended to `design.html`. QA owns the manual test cases; nothing is uploaded |
 
 ### Implementation
@@ -131,15 +129,17 @@ Requires `OPENAI_API_KEY` environment variable.
 | Skill | Description |
 |-------|-------------|
 | `figma-driven-implementation` | Pixel-accurate UI implementation from Figma nodeIds |
-| `run` | Build and run app — simulator (default) or `device`. Supports `--delete` for clean install. |
 
 ### Review & quality
 
 | Skill | Description |
 |-------|-------------|
-| `review-task` | Per-task review: spec compliance + UI verification + Codex debate (built-in `/code-review` fallback when Codex is unavailable) |
-| `validate-test-plan` | Validate the Verification Plan and acceptance points (plus QA's TestSecret cases when they exist) against the implementation — refute-first verdicts per sub-clause; criticality × verifiability routing shrinks the manual-QA list; runtime clauses captured via simulator + Proxyman or explicitly punted; outcome on QA's cases recorded to TestSecret as a run (Dev-Verified / AI-Tested / Failed / Retest / Skipped; punted cases stay Untested as QA's manual queue) |
+| `review-task` | Per-task review before every commit: sensitive-area sweep (project `REVIEW.md`), spec compliance, UI verification against Figma, Codex debate (built-in `/code-review` fallback), the task's declared verification, simplification — then a mandatory human approval gate |
+| `validate-test-plan` | Validate what the per-task reviews left unproven (uncovered acceptance points, unverified rows) plus QA's TestSecret cases when they exist — refute-first verdicts per sub-clause; criticality × verifiability routing shrinks the manual-QA list; runtime clauses captured via simulator + Proxyman or explicitly punted; outcome on QA's cases recorded to TestSecret as a run (Dev-Verified / AI-Tested / Failed / Retest / Skipped; punted cases stay Untested as QA's manual queue) |
 
 ## Per-project setup
 
-The `run` skill defaults to the first booted simulator and auto-discovers connected devices. Override workspace/scheme/bundle ID in your project's `.claude/skills/run/SKILL.md` if they differ from the defaults.
+- **`REVIEW.md`** (source root; may be git-excluded) — the project's "Sensitive areas" table: path patterns, why each is sensitive, and the question a reviewer must answer. `review-task` reads it and puts every touched area in front of the human before a commit. Without it, generic categories are used.
+- **`docs/plans/CODEBASE-KNOWLEDGE.md`** — the codebase map the workflow reads before analysis, design, planning and build.
+- **`verification/<feature>/`** — committed verification scripts and their fixtures.
+- **Git worktrees** don't carry git-excluded files: copy `REVIEW.md`, the MCP config (`.mcp.json`) and build dependencies (e.g. `Pods/`) into a new worktree before starting.

@@ -1,6 +1,6 @@
 ---
 name: review-task
-description: Use after implementing a task — one review pass covering a sensitive-area sweep, spec compliance, UI verification against Figma (including regression on existing elements), Codex debate, unit tests, and simplification/style. Returns ISSUES for the caller's fix loop, or runs the mandatory human gate and returns APPROVED / ESCALATED. Does NOT commit or mark the task complete; the caller does that in the task's commit step.
+description: Use after implementing a task — one review pass covering a sensitive-area sweep, spec compliance, UI verification against Figma (including regression on existing elements), Codex debate, the task's declared verification, and simplification/style. Returns ISSUES for the caller's fix loop, or runs the mandatory human gate and returns APPROVED / ESCALATED. Does NOT commit or mark the task complete; the caller does that in the task's commit step.
 ---
 
 ## When to Use
@@ -12,10 +12,10 @@ description: Use after implementing a task — one review pass covering a sensit
 
 This skill performs **one review pass per invocation**:
 - Reviews spec compliance, Figma UI match + existing-element regression, Codex debate, and simplification/style
-- Runs the task's unit / integration tests, scoped to the task's own test classes (target `Calorie Counter Tests`)
+- Runs exactly the task's Verification rows and Re-run list (scoped tests, committed scripts)
 - Builds the app and runs the simulator for UI verification
 - If the changed UI cannot be reached via normal app flow, autonomously adds a temporary trigger at the start of `Utils.runTest()`, exercises it from the debug menu, screenshots, then removes the trigger before returning
-- Any check that cannot run is reported as **UNVERIFIED — it never silently passes** (exception: an unavailable Codex MCP switches check 3 to the built-in `/code-review` fallback — the adversarial pass still runs, so it is neither UNVERIFIED nor skipped)
+- Any check that cannot run is reported as **UNVERIFIED — it never silently passes** (exception: when Codex cannot be reached at all, check 3 switches to the built-in `/code-review` fallback — the adversarial pass still runs, so it is neither UNVERIFIED nor skipped)
 - Returns one of:
   - **`ISSUES`** + the agreed issue list → the caller fixes (fixes only, no commit) and re-invokes this skill. No human gate on this path.
   - **`APPROVED` / `ESCALATED`** — only after the mandatory human gate, when the pass is clean.
@@ -32,9 +32,9 @@ Dispatch a single reviewer subagent with the following instructions. The reviewe
 The reviewer performs these checks in order:
 
 **1. Spec Compliance**
-- Read the task description from the execution checklist / implementation plan — or, on the Lite Track, from the harness task (its declared files, acceptance point, unit-test scope, and Figma nodeId/waiver)
+- Read the task description from the execution checklist / implementation plan — or, on the Lite Track, from the harness task (its declared files, acceptance point, verification, and Figma nodeId/waiver)
 - Read the changed files (use git diff)
-- **Sensitive-area sweep.** Map the diff's paths against the project's `REVIEW.md` ("Sensitive areas" table at the repo root — often git-excluded and local-only, so read it from disk, never from git history; its "Reviewer asks" question per area is the check to answer). No `REVIEW.md` → judge against the generic categories: local persistence & schema migrations, upgrade/version-gated paths, user-data & preference keys, auth/entitlements/payments, shared API or analytics contracts, cross-module shared models, build/signing/release config. For each touched area record: what changed there, and whether the task's declared Files and acceptance point justify it. Touching a sensitive area is allowed — but it always goes to the human, and is never closed by reviewer or Codex consensus.
+- **Sensitive-area sweep.** Map the diff's paths against the project's `REVIEW.md` ("Sensitive areas" table at the repo root — often git-excluded and local-only, so read it from disk, never from git history, and in a git worktree that lacks it read the main checkout's copy; its "Reviewer asks" question per area is the check to answer). No `REVIEW.md` → judge against the generic categories: local persistence & schema migrations, upgrade/version-gated paths, user-data & preference keys, auth/entitlements/payments, shared API or analytics contracts, cross-module shared models, build/signing/release config. For each touched area record: what changed there, and whether the task's declared Files and acceptance point justify it. Touching a sensitive area is allowed — but it always goes to the human, and is never closed by reviewer or Codex consensus.
 - Verify all requirements in the task are implemented — nothing missing, **nothing extra**: any change the task didn't ask for (adjacent "improvements", edits to working code, files outside the task's declared list) is an issue, not a bonus
 
 **2. UI Verification (only if UI was changed)**
@@ -44,6 +44,7 @@ The reviewer performs these checks in order:
 - Take a screenshot of the affected screen
 - Fetch the corresponding Figma design screenshot using Figma MCP
 - Compare implementation against design — layout, colors, spacing, text, icons
+- **Design waiver (no Figma node):** skip the Figma comparison and report it as `N/A — design waiver`; the screenshot, the regression check below, and the human's own look at the screenshot at the gate still apply
 - **Regression check on existing elements:** the diff must not have removed or shifted anything on that screen the task didn't intend — verify pre-existing elements (badges, ticks, rows, decorations) are still present and correct, against the Figma design and/or the screen's prior state
 - **Upgrade-path caveat:** a fresh simulator install cannot exercise upgrade-from-older-build state; if the task touches version-gated or upgrade-path logic, mark that path **UNVERIFIED** in the report — do not claim it passed
 - **Before returning the report, remove any `Utils.runTest()` trigger you added and rebuild to confirm it still compiles.**
@@ -54,24 +55,24 @@ The reviewer performs these checks in order:
 The reviewer debates with Codex directly to reach consensus on what issues exist. The reviewer only identifies issues; it does not fix code.
 
 **Step 3a: Send to Codex**
-- Use `mcp__codex__codex` to send the diff and task intent
+- Send the diff and task intent to Codex with the Codex CLI: `codex review --uncommitted "<task intent>"`; follow-ups with `codex exec resume --last`
 - Ask Codex to review for: bugs, logic errors, edge cases, missing error handling, style issues
-- **Codex unavailable → internal fallback, not a stop**: run the same review via Claude Code's built-in `/code-review` skill over the task's diff. Evaluate its findings with the same agree/disagree rigor as 3b (there is no reply thread — the caller's judgment replaces the debate loop), and record in the review report that the pass ran on the internal fallback. The adversarial pass itself is never skipped and never downgraded to UNVERIFIED.
+- **Codex CLI unavailable → internal fallback, not a stop**: run the same review via Claude Code's built-in `/code-review` skill over the task's diff. Evaluate its findings with the same agree/disagree rigor as 3b (there is no reply thread — the caller's judgment replaces the debate loop), and record in the review report that the pass ran on the internal fallback. The adversarial pass itself is never skipped and never downgraded to UNVERIFIED.
 
 **Step 3b: Evaluate each issue Codex raises**
 - **Agree**: If the issue is valid, record it as a confirmed issue
-- **Disagree**: If the issue is not valid (false positive, project convention, etc.), explain reasoning to Codex using `mcp__codex__codex-reply`
+- **Disagree**: If the issue is not valid (false positive, project convention, etc.), explain reasoning to Codex in the same thread
 
 **Step 3c: Iterate until consensus**
-- Use `mcp__codex__codex-reply` to continue the conversation — keep the thread, don't start new sessions
+- Continue in the same thread (`codex exec resume --last`) — don't start new sessions
 - Debate until both sides agree on which issues are real
 - Push back on over-engineered suggestions — the right fix is the minimal correct fix
 
 **4. Verification**
 - Execute exactly the task's **Verification** rows plus its **Re-run** list, read off the checklist entry — nothing else. Selection was made and confirmed at Step 5; do not add items by judging what the change "could affect", and never run the unfiltered test target
-- Per method: **unit/integration rows** → scoped `test_sim`, one `-only-testing:Calorie Counter Tests/<TestClass>` entry in `extraArgs` per class; **script rows** → run the committed script from `verification/<feature>/` and assert against the row's criteria on the Proxyman capture when available, else on the script's own input/output (state which in the report); **review-only rows** → resolve inside check 3's adversarial pass, and the report cites that verdict as the row's evidence
+- Per method: **unit/integration rows** → scoped `test_sim`, one `-only-testing:Calorie Counter Tests/<TestClass>` entry in `extraArgs` per class; **script rows** → run the committed script from `verification/<feature>/` and assert against the row's criteria on the Proxyman capture when available, else on the script's own input/output (state which in the report) — but a row about a request the app itself sends cannot be observed without a capture: report it UNVERIFIED, never PASS; **review-only rows** → resolve inside check 3's adversarial pass, and the report cites that verdict as the row's evidence; **simulator-check rows** → check 2's UI verification is the evidence
 - A red test, a script output that misses its criteria, or a review-only row check 3 could not clear is a confirmed issue. If the change plainly touches code no Verification/Re-run row covers, report that as a finding (the plan's list is incomplete) rather than silently widening the run
-- **Match the run to the pass.** The first pass of a task runs the full scoped set above. A fix-loop pass re-runs only the classes the fix touched. A pass whose diff since the last review is only renames, comments or docs runs **no tests and no simulator**: compile the app and the test target (`build-for-testing`), `git grep` for stale names, and report checks 2 and 4 as "not run — rename/comment-only pass, compile verified". This is not UNVERIFIED — a Swift rename that missed a site fails to compile — but the pass must state which kind it was and why
+- **Match the run to the pass.** The first pass of a task runs the full scoped set above. A fix-loop pass re-runs only the rows the fix touched. A pass whose diff since the last review is only renames, comments or docs runs **no tests and no simulator**: compile the app and the test target (`build-for-testing`), `git grep` for stale names, and report checks 2 and 4 as "not run — rename/comment-only pass, compile verified". This is not UNVERIFIED — a Swift rename that missed a site fails to compile — but the pass must state which kind it was and why
 - **No expectation drift.** Scan the diff for changes to existing tests, verification scripts, or their fixtures: an edited expected value, a weakened assertion (`assertEqual` → `assertNotNil`, a removed check), a deleted or skipped test, a re-recorded fixture. Each one must trace to a D-decision change in `design.html` or a changed row in the Verification Plan; otherwise it is a confirmed issue — the implementation was fitted to pass, not fixed. This applies with full force inside the review-fix loop, where the pressure to go green is highest
 - If the test target cannot be built/run (e.g., a worktree without the Xcode project), report this check as **UNVERIFIED** — never as passed
 
@@ -124,7 +125,7 @@ If the task has **no Figma reference AND no unit-testable logic** (e.g. backend-
 
 1. Post a concise summary to the user: what was implemented, what was reviewed, fixes made across rounds, the reviewer's recommendation.
 2. **Show the human what they are approving — sensitive areas first:** every item from the report's **Sensitive Areas** list (area, what changed there, the scope justification) — this list is what the human's review attention is *for*, so it leads. Then the diff summary — files changed plus the key hunks (for larger diffs, the exact `git diff`/`git show` command to view it) — and, verbatim, every item from the report's **Unverified** list. For UI tasks, include the reviewer's simulator screenshot (path) beside the Figma reference so the human can eyeball the change themselves. An Approve must be informed consent; approving with UNVERIFIED items or touched sensitive areas is an explicit, recorded acknowledgement.
-   **What an Approve does NOT assert:** agent review plus green tests does not prove UI behaviour — the human QA pass (Step 7a's manual list) stays in the loop regardless of this Approve; say so when presenting a UI task.
+   **What an Approve does NOT assert:** agent review plus green tests does not prove UI behaviour — QA's own testing and Step 7a's manual-QA list stay in the loop regardless of this Approve; say so when presenting a UI task.
 3. **Call `AskUserQuestion`** with:
    - `question`: "Review for `<task name>` complete. Recommendation: APPROVE. Sensitive areas: `<areas or none>`. Unverified: `<list or none>`. Approve commit + TaskUpdate?"
    - `header`: "Task review"
@@ -140,7 +141,7 @@ If the task has **no Figma reference AND no unit-testable logic** (e.g. backend-
 
 - A user's `Approve` is a **single-use authorization for THIS task's commit only** — it does not pre-authorize the next task, a later push, or any housekeeping commit. Each commit needs its own same-turn OK. Subagents NEVER commit; the main agent runs the commit in the task's commit step after this skill returns `APPROVED`.
 - The reviewer subagent only reports issues; the caller fixes; this skill only produces `ISSUES` or a human-gated verdict
-- UI verification requires a Figma URL — check the execution checklist / implementation plan or story-analysis output for the relevant Figma node
+- UI verification compares against the task's Figma node — find it in the checklist entry or the story-analysis output; under a design waiver see check 2
 - For the Codex debate: respond to every issue Codex raises, be willing to debate or concede, keep it simple
 
 ## Red Flags — stop and correct course

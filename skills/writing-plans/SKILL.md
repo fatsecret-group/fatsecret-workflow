@@ -9,11 +9,13 @@ description: Use when a confirmed design needs to be turned into an executable t
 
 Turn a confirmed design and its Verification Plan into an executable task breakdown. The output is a lightweight **Execution Checklist** appended to `design.html` — the only plan artifact; a task that needs more carries the detail inside its own entry (see "One Artifact").
 
-Assume the implementer is a skilled developer who knows almost nothing about this codebase — every task names its exact files, tests, and acceptance point. But do NOT front-load code: implementers read the real files at task time. Plans that embed large code blocks go stale the moment the design shifts, and their API references are unverified until something compiles. DRY. YAGNI.
+Assume the implementer is a skilled developer who knows almost nothing about this codebase — every task names its exact files, verification, and acceptance point. But do NOT front-load code: implementers read the real files at task time. Plans that embed large code blocks go stale the moment the design shifts, and their API references are unverified until something compiles. DRY. YAGNI.
 
-**Project reality — deliverable criteria over unit tests.** Every task's verification comes from the **Verification Plan** in `design.html`: one row per deliverable (criteria → method), confirmed by the human. Methods: **script + fixture** in `verification/<feature>/` (view models / server interaction; assert on the Proxyman capture when available, else on the script's own input/output), **review-only** (mapping/assembly model code — the Codex/advisor verdict is the evidence), **unit test** ONLY for wrong-answer-is-a-bug logic (calculations, conversions, state transitions; written failing-first, `test_sim` scoped with `-only-testing:` — never run the whole target), **integration test** only for persistence contracts. UI tests and snapshot tests stay out of scope; pure-UI tasks verify via `review-task`'s simulator pass. Tasks execute their own rows and nothing beyond them; downstream re-verification is owned by `review-task`. Plans MUST NOT prescribe UI-test-writing steps or standalone build steps.
+**Project reality — deliverable criteria over unit tests.** Every task's verification comes from the **Verification Plan** in `design.html` — one row per deliverable (criteria → method), confirmed by the human; the methods are defined in `write-test-plan`. Tasks execute their own rows and nothing beyond them: no extra unit tests, no UI or snapshot tests, never the whole test target. Downstream re-verification is owned by `review-task`. Plans MUST NOT prescribe UI-test-writing steps or standalone build steps.
 
-**Commit timing.** Each task MUST end with an explicit "Commit & mark complete" step. The checklist/plan is the single source of truth for when commits happen.
+**Language: English.** The checklist is executed by other engineers and agents, and its task titles become commit messages — write it in English even when the working conversation is in another language.
+
+**Commit timing.** Each task MUST end with an explicit "Commit & mark complete" step. The checklist is the single source of truth for when commits happen.
 
 **Announce at start:** "I'm using the writing-plans skill to create the execution plan."
 
@@ -47,11 +49,7 @@ The Execution Checklist, appended to the feature's `design.html` as its final se
 - **Destructive migration** → the entry carries its callsite list and old-path semantics per "Migration Discipline" — these were enumerated at design time under feature-workflow's grounding rule, so reference `design.html`'s migration notes rather than re-deriving them.
 - **The user asks** for more detail on a task.
 
-(Standalone use outside `fatsecret-workflow:feature-workflow`: save a markdown plan to `docs/plans/YYYY-MM-DD-<feature-name>.md`. User preferences for location/format override all defaults.)
-
 ## File Structure
-
-**Language: English.** The checklist or plan is executed by other engineers and agents, and its task titles become commit messages — write it in English even when the working conversation is in another language.
 
 Before defining tasks, map out which files will be created or modified and what each one is responsible for. This is where decomposition decisions get locked in.
 
@@ -71,7 +69,7 @@ Before defining tasks, map out which files will be created or modified and what 
 
 ## Migration Discipline (destructive / replacement work)
 
-Applies whenever tasks remove or replace existing code (this is also a full-plan trigger):
+Applies whenever tasks remove or replace existing code (such tasks carry the extra detail in their own entry — see "One Artifact"):
 
 1. **The source implementation is the spec.** Before writing target-side tasks, read the code being replaced and enumerate its guards, branches, inputs, and semantics; reference them in the task. Do not design the replacement from first principles.
 2. **Reversible-first.** Removal tasks comment out — never hard-delete (feature-workflow Invariant 4). The actual deletion is its own task at the end of the plan, run only after human review of the commented-out state.
@@ -82,8 +80,8 @@ Applies whenever tasks remove or replace existing code (this is also a full-plan
 
 If a task creates or modifies UI:
 
-1. **Record Figma nodeIds in the task's Files entry** — one nodeId per UI file, pulled from `story-analysis` output (Source / Key UI Specs) or from the user. A UI task with no nodeId is a gap: ask the user for the design (or an explicit waiver) before finalizing the checklist/plan.
-2. **The Implement step invokes `fatsecret-workflow:figma-driven-implementation`** — it queries Figma per component at implementation time and is the sole source of truth for visual values. Checklists and plans never carry pixel values.
+1. **Record Figma nodeIds in the task's Files entry** — one nodeId per UI file, pulled from `story-analysis` output (Source / Key UI Specs) or from the user. A UI task with no nodeId is a gap: ask the user for the design (or an explicit waiver) before finalizing the checklist.
+2. **The Implement step invokes `fatsecret-workflow:figma-driven-implementation`** — it queries Figma per component at implementation time and is the sole source of truth for visual values. The checklist never carries pixel values.
 
 ## Execution Checklist Format
 
@@ -91,13 +89,13 @@ Append to `design.html` as a final section ("Execution Checklist"), using the sh
 
 - **Title** — descriptive, referenced as "Task 3 (Target screen wiring)", never a bare "Task 3"
 - **Files** — Create/Modify with exact paths; Figma nodeId for UI files
-- **Verification** — the rows from the Verification Plan this task owns: each deliverable's criteria + method (script+fixture / review-only / unit / integration), or "simulator check + review (pure UI)"
+- **Verification** — the rows from the Verification Plan this task owns: each deliverable's criteria + method (script+fixture / review-only / simulator check / unit / integration), or "simulator check + review (pure UI)"
 - **Re-run** — the existing test classes and verification scripts that exercise the code this task's Files change, named explicitly (grep the test target and `verification/` for the types in Files while writing the plan), or "none". This list is decided here and confirmed at the Step 5 gate; `review-task` runs exactly it plus the task's own verification and makes no selection of its own
 - **Acceptance** — the observable outcome that makes this task done
 - **Steps** — the standard cycle (write it once at the top of the section, not per task):
-  Implement (`figma-driven-implementation` for UI; compile cleanly, fix new warnings; no simulator run — that's `review-task`'s job) → Verify per the entry's Verification rows (unit/integration rows failing-first then green, `test_sim` scoped; script rows run from `verification/<feature>/` and checked against the Proxyman capture or the script's own output; review-only rows resolve in `review-task`'s pass) → `review-task` (one pass; the caller owns the fix loop, max 3 rounds) → Knowledge Delta Check (defined below) → Commit & `TaskUpdate(completed)` (stage exactly the declared Files; staged ⊆ Files; post-commit `git status` clean; same-turn human OK per feature-workflow Invariant 1)
+  Implement (`figma-driven-implementation` for UI; compile cleanly, fix new warnings; confirm the diff has no whitespace-only line changes — `git diff --numstat` and `git diff -w --numstat` must agree; no simulator run — that's `review-task`'s job) → Verify per the entry's Verification rows (unit/integration rows failing-first then green, `test_sim` scoped; script rows run from `verification/<feature>/` and checked against the Proxyman capture or the script's own output; review-only rows resolve in `review-task`'s pass) → `review-task` (one pass; the caller owns the fix loop, max 3 rounds) → Knowledge Delta Check (defined below) → Commit & `TaskUpdate(completed)` (stage exactly the declared Files; staged ⊆ Files; post-commit `git status` clean; same-turn human OK per feature-workflow Invariant 1)
 
-**Task tracking is via the harness task list** (`TaskCreate` / `TaskUpdate`) — the document is the human-readable spec; live status lives in the task list.
+**Task tracking is via the harness task list** (`TaskCreate` / `TaskUpdate`) — the document is the human-readable spec; live status lives in the task list. Where the harness exposes no task tools, the checklist cards in `design.html` are the status record — mark each task done there.
 
 ## Knowledge Delta Check (in every task)
 
@@ -125,7 +123,7 @@ Every task must contain what an engineer needs to execute it. These are **plan f
 
 ## Self-Review
 
-After writing the checklist/plan, look at the spec with fresh eyes and check against it:
+After writing the checklist, look at the spec with fresh eyes and check against it:
 
 1. **Spec coverage:** Can you point to a task for each requirement in the design and its Verification Plan? List any gaps.
 2. **Placeholder scan:** Search for the "No Placeholders" patterns above. Fix them.
@@ -136,11 +134,4 @@ Fix issues inline and move on. If a spec requirement has no task, add the task.
 
 ## Execution Handoff
 
-**When invoked by `fatsecret-workflow:feature-workflow`** (the common case):
-Say: *"Execution checklist appended to `design.html`"* (or *"Plan saved to `<path>`"*) — *"Ready for Step 6 — I'll execute each task's steps in order; `review-task` gates every commit."* Then return control to feature-workflow; do NOT offer alternative execution modes.
-
-**When invoked standalone**, offer two options:
-1. **Inline (recommended)** — Execute the tasks in this session: review the plan critically first and raise concerns before starting, then follow each task's steps exactly in order, stopping to ask when blocked instead of guessing.
-2. **Subagent-Driven** — first make each dispatched task's entry self-contained (see "One Artifact"). Dispatch a fresh subagent per task with **only the task's Implement step** (subagents never invoke `review-task`, ask the human, or commit — feature-workflow Invariant 1); verify each result against the task's acceptance point yourself by reading the diff — never trust a bare "success" report.
-
-In either standalone mode, `review-task` is still the only path to commit and mark tasks complete.
+Say: *"Execution checklist appended to `design.html`"* — *"Ready for Step 6 — I'll execute each task's steps in order; `review-task` gates every commit."* Then return control to `feature-workflow`; do NOT offer alternative execution modes. `review-task` is the only path to commit and mark tasks complete.

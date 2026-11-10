@@ -25,14 +25,14 @@ For each UI element you are implementing:
    - Colors (map to `FSColorExtension` tokens when possible, otherwise use literal with a `// Figma: #hex` comment — do NOT use `FSColor`, it is outdated and being replaced)
    - Corner radius
    - Shadows and opacity
-3. **Implement**: Write SwiftUI code using these exact values
+3. **Implement**: Write the UI code — SwiftUI or UIKit, matching the surrounding code — using these exact values
 4. **Next**: Move to the next component
 
 **When metadata is incomplete:** if `get_design_context` omits constraints, variants, states, or asset details for a component, do NOT infer "exact values" silently — fetch the component's screenshot via Figma MCP to corroborate, or ask the user. Record which values came from metadata vs screenshot vs user answer.
 
 ```
 For each component:
-  get_design_context(nodeId) → extract values → write SwiftUI → next
+  get_design_context(nodeId) → extract values → write the UI code → next
 ```
 
 ## Mapping to Project Design System
@@ -51,7 +51,7 @@ If an exact `FSColorExtension`/`FSFont` match exists, use it. If not, use the li
 
 This skill's job ends at **per-component Figma extraction + implementation**. The final screenshot-vs-Figma visual comparison is owned by `review-task` (its UI Verification check) — it is NOT done here. Keeping a single visual gate avoids duplicating the comparison at implementation time and matches the `writing-plans` Implement step ("no simulator run — that's review-task's job").
 
-Before handing off, confirm each component was implemented from a fresh per-component Figma query (not from memory or the plan). If you notice a discrepancy while implementing, fix it by re-querying that component's nodeId — but do not run a simulator-screenshot / user-comparison pass here; that happens in `review-task` Step 2.
+Before handing off, confirm each component was implemented from a fresh per-component Figma query (not from memory or the plan). If you notice a discrepancy while implementing, fix it by re-querying that component's nodeId — but do not run a simulator-screenshot / user-comparison pass here; that happens in `review-task` check 2.
 
 ## Red Flags
 

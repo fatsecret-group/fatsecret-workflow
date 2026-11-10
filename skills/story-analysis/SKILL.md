@@ -1,6 +1,6 @@
 ---
 name: story-analysis
-description: Use when starting a feature with Stories (from Shortcut, text, etc.) and optionally Figma designs — analyzes stories, explores codebase for hidden associations, and produces structured executable items for downstream test plans and coding plans
+description: Use when starting a feature with Stories (from Shortcut, text, etc.) and optionally Figma designs — analyzes stories, explores codebase for hidden associations, and produces structured executable items for downstream design and planning
 ---
 
 ## When to Use
@@ -48,9 +48,11 @@ Supports both single Story and batch Stories (a Feature).
 
 **Step 1 — Fetch current Stories**
 Fetch the Stories the user provided — these are the Stories you are analyzing:
-- If given an **Iteration ID or URL**: call `mcp__shortcut__iterations-get-stories` to get the story list, then `mcp__shortcut__stories-get-by-id` for each
+- If given an **Iteration ID or URL**: call `mcp__shortcut__iterations-get-stories` to get the story list, then `mcp__shortcut__stories-get-by-id` for each. An iteration usually mixes platforms and chores — filter to this platform's label and confirm with the user which stories are in scope before analyzing
 - If given **Story IDs**: call `mcp__shortcut__stories-get-by-id` for each
+- The tool names here are those of the `@shortcut/mcp` package; on a Shortcut server that names its tools differently, use the equivalent tool
 - If given **pasted text**: read directly
+- Shortcut MCP unavailable → ask the user to paste the story text, and record in the output that the stories were pasted
 - If Figma URLs are provided by the user, fetch design screenshots and context
 - If multiple Stories, identify relationships and ordering between them
 
@@ -58,7 +60,7 @@ Fetch the Stories the user provided — these are the Stories you are analyzing:
 After fetching all Stories, scan every Story description for Figma URLs (patterns like `figma.com/board/...`, `figma.com/design/...`, `figma.com/file/...`). Collect all unique URLs found.
 
 1. If Figma URLs are found in Story descriptions: present them to the user grouped by Story for confirmation, then fetch design screenshots and context via Figma MCP for each confirmed URL
-2. If NO Figma URLs are found anywhere (neither in Stories nor provided by the user) BUT the Stories describe UI elements (screens, banners, popups, etc.): ask the user whether Figma designs exist for this feature. Default is to block: do not proceed past the intent-extraction step (Step 3 below) without design coverage for UI-heavy features — unless the user explicitly grants a **design waiver**. Record the waiver and its assumptions in the output; waived UI gets no pixel-match in `review-task`
+2. If NO Figma URLs are found anywhere (neither in Stories nor provided by the user) BUT the Stories describe UI elements (screens, banners, popups, etc.): ask the user whether Figma designs exist for this feature. Default is to block: do not proceed past the intent-extraction step (Step 3 below) without design coverage for UI-heavy features — unless the user explicitly grants a **design waiver**. Record the waiver and its assumptions in the output; waived UI gets no pixel-match in `review-task`. A waiver covers visual styling only — placement, ordering and visibility questions (where an entry point sits, what is shown or hidden) stay open questions for design or PM, never guessed
 3. Combine user-provided Figma URLs (if any) with those extracted from Stories — deduplicate by fileKey+nodeId
 
 This step is critical because product teams often embed design links directly in Story descriptions rather than providing them separately.
@@ -97,7 +99,7 @@ If no codebase is available, inform the user and ask for confirmation to proceed
 **Step 5 — Discover behavioral dimensions & analyze segments**
 Based on the Stories and code explored so far, identify **behavioral dimensions** — factors specific to this feature that could cause it to behave differently for different users or contexts. Derive them from what the Stories and code reveal, not from a fixed checklist. For example, account type (free vs premium) is a common dimension that affects feature availability.
 
-Present the discovered dimensions to the human and ask: "Based on these Stories, I identified these dimensions that affect this feature's behavior: [list]. Are there others I'm missing?"
+Collect the discovered dimensions for the Confirmation Gate — the human is asked about completeness there, once.
 
 Then, for each relevant user segment (e.g. new users, existing users upgrading, returning users — adapt to the feature), determine:
 - What is the initial state of any newly introduced flags, counters, or persisted values?
