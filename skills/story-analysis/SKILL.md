@@ -5,7 +5,7 @@ description: Use when starting a feature with Stories (from Shortcut, text, etc.
 
 ## When to Use
 
-- At the start of feature development, BEFORE `write-test-plan` or `writing-plans`
+- At the start of feature development, BEFORE design (feature-workflow Step 3)
 - When the user provides Stories (Shortcut IDs, Iteration IDs, or pasted text)
 - When Figma design URLs are available alongside Stories
 
@@ -154,7 +154,7 @@ Do NOT dump all questions as a list for the user to answer in bulk — this lead
 **Step 8 — Save document**
 - Save to the feature's output directory (see feature-workflow Output Directory rule) as `story-analysis.html`
 - Present a summary to the user
-- This document is the input for `write-test-plan` and `writing-plans`
+- This document is the input for design (feature-workflow Step 3), whose agreed decisions are then posted to the Shortcut stories for QA
 
 ## Output Format
 

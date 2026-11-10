@@ -44,9 +44,10 @@ Run this at Step 1 and present **one MCP readiness table** to the user before pr
 **Optional MCPs** (missing → note it in the table and apply the named fallback; never block):
 - `codex` — external peer reviewer. Fallback: `review-task`'s debate runs via Claude Code's built-in `/code-review` skill; `write-test-plan`'s coverage challenge runs via a fresh-context subagent. The adversarial gates themselves are NOT optional — only who plays the adversary changes.
 - `proxyman` — runtime network capture in `validate-test-plan` Phase 3. Without it, R cases needing capture stay PUNTED to manual QA.
-- `testsecret` — TestSecret, the authoritative case library: Step 4 case upload + Step 7a result write-back. Unreachable → defer with an explicit note to the user, never silently skip. **Not configured at all → offer to set it up** with the setup guide (https://claude.ai/code/artifact/656220b8-5cc5-46de-8880-e330839cbb62): the user creates a token in the TestSecret web UI (Settings → API tokens, shown once), then `claude mcp add testsecret --transport http <mcp-url> --header "Authorization: Bearer <token>"`; the guide also covers verification and the common failures (proxy blocks the bare IP — use the AWS hostname; hostname rotates when the instance reboots).
+- `shortcut` — reads the stories (Step 2) and posts the decision summary to them (Step 3 gate). Unavailable → the human pastes the stories in, and the approved summary is handed to the human to paste onto each story.
+- `testsecret` — TestSecret, where QA keeps their test cases: Step 7a validates QA's cases for the feature and writes results back when they exist by then. Unreachable → Step 7a validates the dev side only, with an explicit note to the user. **Not configured at all → offer to set it up** with the setup guide (https://claude.ai/code/artifact/656220b8-5cc5-46de-8880-e330839cbb62): the user creates a token in the TestSecret web UI (Settings → API tokens, shown once), then `claude mcp add testsecret --transport http <mcp-url> --header "Authorization: Bearer <token>"`; the guide also covers verification and the common failures (proxy blocks the bare IP — use the AWS hostname; hostname rotates when the instance reboots).
 
-**Note on verification:** Every deliverable is verified by the method its **Verification Plan** row names (defined in Step 4, confirmed by the human): **script + fixture** committed to `verification/<feature>/` for view models and server interaction (assert on the Proxyman capture when available, else on the script's own input/output); **review-only** for mapping/assembly model code (the recorded Codex/advisor verdict is the evidence); **unit tests ONLY for wrong-answer-is-a-bug logic** — calculations, conversions, percentage/date arithmetic, state transitions — written failing-first and run scoped via `extraArgs: ["-only-testing:Calorie Counter Tests/<TestClass>"]`, never the unfiltered target; **integration tests** only for persistence contracts. Test-quality rules where tests exist: watch the test fail before making it pass; assert observable behavior, never internals; expected values come from an independent source of truth, never recomputed the way the code computes them. Per-task re-verification is owned by `review-task`. UI tests and snapshot tests are out of scope.
+**Note on verification:** Every deliverable is verified by the method its **Verification Plan** row names (defined in Step 4, confirmed by the human): **script + fixture** committed to `verification/<feature>/` for view models and server interaction (assert on the Proxyman capture when available, else on the script's own input/output); **review-only** for mapping/assembly model code (the recorded Codex/advisor verdict is the evidence); **simulator check** for visual/UX deliverables (`review-task`'s UI verification against Figma); **unit tests ONLY for wrong-answer-is-a-bug logic** — calculations, conversions, percentage/date arithmetic, state transitions — written failing-first and run scoped via `extraArgs: ["-only-testing:Calorie Counter Tests/<TestClass>"]`, never the unfiltered target; **integration tests** only for persistence contracts. Test-quality rules where tests exist: watch the test fail before making it pass; assert observable behavior, never internals; expected values come from an independent source of truth, never recomputed the way the code computes them. Per-task re-verification is owned by `review-task`. UI tests and snapshot tests are out of scope.
 
 ## Workflow at a Glance
 
@@ -56,10 +57,10 @@ Step 1: Introduction        — collect input, pick track, confirm output folder
   └─ Full Track:
      Step 2: Story Analysis      — understand stories + explore code [skip if no stories]
      Step 3: Design Exploration  — architecture decisions, grounded in real code; adversarial design challenge; implementation Q&A
-     Step 4: Test Plan           — manual QA + automated coverage (unit / integration); mandatory adversarial coverage challenge
+     Step 4: Verification Plan   — dev's own test considerations per deliverable, appended to design.html; mandatory adversarial coverage challenge (QA writes the test cases)
      Step 5: Execution Plan      — execution checklist appended to design.html
      Step 6: Build               — execute each task; review-task gates every commit
-     Step 7: Verify & Ship       — blocking test-plan verification + finish branch
+     Step 7: Verify & Ship       — blocking deliverable verification (+ QA's cases when they exist) + finish branch
 ```
 
 ## Lite Track — bug fixes, mechanical refactors, small UI tweaks
@@ -71,7 +72,7 @@ Choose this in Step 1 when the work is a bug fix, a mechanical refactor, or a sm
 3. **Task list as the execution contract.** Create harness tasks (`TaskCreate`) for the fix steps — this replaces the plan document, so each task must carry what `review-task` will review against: the exact files it will touch, its acceptance point, its unit-test scope (if there's testable logic), and the Figma nodeId or human-granted waiver for UI changes.
 4. **Gated execution.** Each code task: implement (failing-first unit test only if the fix is wrong-answer-is-a-bug logic; `figma-driven-implementation` if UI) → `review-task` → human gate → commit per the Commit reliability rules in Step 6.
 5. **Destructive changes** follow Invariant 4 (comment-out first, per-item confirmation, separate delete pass).
-6. **Close out.** After the final task's commit, if the fix lives on its own branch, run Step 7c (finish branch). Step 7a does not apply — there is no test plan.
+6. **Close out.** After the final task's commit, if the fix lives on its own branch, run Step 7c (finish branch). Step 7a does not apply — there is no Verification Plan.
 
 ### Diagnosis Method (Lite Track step 1)
 
@@ -91,8 +92,7 @@ All workflow artifacts for a feature are saved under a single folder:
 ```
 docs/plans/<feature-name>/
   ├── story-analysis.html       (from Step 2)
-  ├── design.html               (from Step 3; includes the Execution Checklist section from Step 5)
-  └── test-plan.html            (from Step 4)
+  └── design.html               (from Step 3; includes the Verification Plan from Step 4 and the Execution Checklist from Step 5)
 ```
 
 The feature folder name is confirmed with the user in Step 1.
@@ -107,7 +107,7 @@ A project may override the format in its own CLAUDE.md (e.g. `docs/plans/<area>/
 
 ### Document language — English
 
-**Everything this workflow writes down is in English**, regardless of the language the human and the model are conversing in: the plan artifacts above, their diagrams, the Execution Checklist, TestSecret cases, `CODEBASE-KNOWLEDGE.md` entries, code comments, and commit messages. These outlive the conversation and are read by the wider team, by QA inside TestSecret, and by tooling — the chat language is one person's channel preference, not a property of the artifact. Quoting a human's or a story's exact wording in its original language is fine where the wording itself is the point; the surrounding document stays English.
+**Everything this workflow writes down is in English**, regardless of the language the human and the model are conversing in: the plan artifacts above, their diagrams, the Verification Plan and Execution Checklist, the decision summaries posted to Shortcut stories, TestSecret result comments, `CODEBASE-KNOWLEDGE.md` entries, code comments, and commit messages. These outlive the conversation and are read by the wider team, by QA on the stories and in TestSecret, and by tooling — the chat language is one person's channel preference, not a property of the artifact. Quoting a human's or a story's exact wording in its original language is fine where the wording itself is the point; the surrounding document stays English.
 
 ---
 
@@ -122,8 +122,7 @@ Some efforts are too large to run as a single feature (a migration, a multi-subs
      ├── story-analysis.html            (project-wide, done ONCE)
      ├── CLAUDE.md                      (project conventions: doc format, logging, …)
      └── phase-N-<name>/
-         ├── design.html                (this phase — Step 3; includes its Execution Checklist)
-         └── test-plan.html             (this phase — Step 4)
+         └── design.html                (this phase — Step 3; includes its Verification Plan and Execution Checklist)
    ```
    For each phase, treat its subfolder as the feature folder and run **Steps 3–6 plus the per-phase verification (Step 7a)**; Step 7c (finish branch) is NOT per-phase — it follows point 4's timing. **Skip Step 2's story gathering** — the project-level analysis already covers it (only re-open it if a phase surfaces genuinely new stories). But Steps 3–5 STILL take the project-root `story-analysis.html` as their story-analysis input: treat it as the *"with story analysis"* path in Step 3, not *"explore from scratch."*
 3. **Design decisions are numbered and shared across phases** (`D1`, `D6`, …) so later phases reference earlier ones. Record them in each phase's `design.html` and cross-link.
@@ -143,7 +142,8 @@ Present this to the user and collect input:
 >
 > **Analyze** → understand stories, explore code for hidden impacts
 > **Design** → architecture decisions grounded in the real code (adversarial design challenge, then implementation Q&A)
-> **Test Plan** → define acceptance criteria + automated coverage (adversarial coverage challenge)
+> **Share with QA** → post the agreed decisions to the Shortcut stories, so QA writes their cases from the same understanding
+> **Verification Plan** → how dev proves each deliverable done (adversarial coverage challenge)
 > **Plan** → execution checklist
 > **Build** → implement, verify each task per its deliverable criteria, review, commit
 >
@@ -203,8 +203,8 @@ Save output to `docs/plans/<feature-name>/story-analysis.html`.
 
 Do not present a final design until the interview has reached shared understanding — concretely, until every exit criterion holds:
 
-- **Every acceptance point names its verification mechanism** — a unit-test assertion, a Figma nodeId, a manual QA step for the test plan, or a measurable threshold. A criterion nothing can verify is renegotiated now, not discovered at Step 7a.
-- **Behaviors carry concrete input → expected-output examples** (edge and error cases included) from the scenario stress-tests, ready to become test-plan criteria — the human's examples are the independent source of truth every verification asserts against.
+- **Every acceptance point names its verification mechanism** — a check the developer can run (Step 4 turns these into the Verification Plan), a Figma nodeId, a measurable threshold, or an explicit "QA verifies" flag carried into the Shortcut decision summary. A criterion nothing can verify is renegotiated now, not discovered at Step 7a.
+- **Behaviors carry concrete input → expected-output examples** (edge and error cases included) from the scenario stress-tests, ready to become Verification Plan criteria and the examples QA reads in the Shortcut decision summary — the human's examples are the independent source of truth every verification asserts against.
 - **A non-goals / out-of-scope list is recorded in `design.html`** — prohibitions are executable; "keep it minimal" is not.
 - **Known goal conflicts have a pre-ranked priority** ("when X conflicts with Y, prefer X"), captured with the relevant D-decision.
 - **Qualitative goals are converted** to a measurable threshold or explicitly marked "no threshold — human judges in QA"; never left as adjectives.
@@ -251,7 +251,7 @@ Follow the conventions in `references/code-graph.md` (in this skill's directory)
 
 - **Answer under the Grounding rule.** Open the code and cite `file:line`; an answer naming a type, file, or API you have not opened this session is not an answer. Fan out read-only agents for the legwork — the answer itself is given inline (Invariant: gates are never delegated).
 - **Fold back before continuing.** Any answer that exposes a gap, changes a decision, or surfaces an unverified assumption goes into `design.html` (new or changed D-number, or Assumptions & Risks) *before* the round can end. Re-present what changed, then ask again. Nothing else is written down — the Q&A itself produces no artifact.
-- **Loop until the human explicitly says they have no more questions.** Then proceed to Step 4.
+- **Loop until the human explicitly says they have no more questions.** Then share the decisions with QA (below) and proceed to Step 4.
 
 | Thought | Reality |
 |---|---|
@@ -259,20 +259,26 @@ Follow the conventions in `references/code-graph.md` (in this skill's directory)
 | "They went quiet / said 'looks good'" | Silence and vague praise are not the declaration. Ask again. |
 | "This question is too deep for design — it's an implementation detail" | If it can't be answered from the code now, it's an assumption or a risk. Record it as one. |
 
+### Share decisions with QA (Shortcut)
+
+QA writes the test cases, with their own method, and usually after dev has started — so dev and QA can read the same story two ways. Closing the gate therefore includes posting the agreed decisions onto the Shortcut stories, so QA writes their cases from the same understanding dev is building from.
+
+- **One comment per story**, covering what applies to that story, in English. Content is *decisions, not thinking*: the behavior-affecting D-decisions in plain product language (no class or file names); out of scope / non-goals; the concrete input → expected-output examples, edge and error cases included; the edge cases and risk areas dev considered; and open questions still waiting on PM. Leave out the exploration, the alternatives weighed, and implementation detail.
+- **The human approves the draft before anything is posted** — show it in the same turn as the closing gate; a story comment is visible to the whole team. Then post with `mcp__shortcut__stories-create-comment`. Shortcut MCP unavailable → hand the approved text to the human to paste.
+- **Divergence goes to PM, not to a guess.** If QA (or a story comment) reads the story differently from a posted decision, neither side's reading wins — ask the human to take it to PM, and record the answer as a changed D-decision.
+
 ---
 
-## Step 4 — Test Plan [human gate]
+## Step 4 — Verification Plan [human gate]
 
 **Skill**: `fatsecret-workflow:write-test-plan`
 **Condition**: Always (Full Track).
 
-Uses the story-analysis output (if available) and design exploration output as input.
+Uses the confirmed design and the story-analysis output (if available) as input. **QA owns the manual test cases — this step writes none and uploads nothing.**
 
-The test plan defines both the **manual QA acceptance cases** and a separate **Verification Plan** — one row per deliverable: criteria (the observable result that proves it) → method (script+fixture in `verification/<feature>/` / review-only / unit test for wrong-answer-is-a-bug logic / integration test for persistence contracts). **The human confirms the Verification Plan as one table in one batch** — the criteria and method per deliverable are the human's call, corrected per row in their reply, never asked one row at a time. Before the plan is finalized, `write-test-plan` runs a **mandatory devil's-advocate coverage challenge** over the whole draft (manual + verification) — Codex when available, a fresh-context subagent otherwise; the gate itself is not skippable.
+The Verification Plan is the developer's own test considerations, appended to `design.html`: one row per deliverable — criteria (the observable result that proves it) → method (script+fixture in `verification/<feature>/` / review-only / simulator check / unit test for wrong-answer-is-a-bug logic / integration test for persistence contracts). **The human confirms it as one table in one batch** — the criteria and method per deliverable are the human's call, corrected per row in their reply, never asked one row at a time. Before it is finalized, `write-test-plan` runs a **mandatory devil's-advocate coverage challenge** — Codex when available, a fresh-context subagent otherwise; the gate itself is not skippable.
 
-Save output to `docs/plans/<feature-name>/test-plan.html`.
-
-Wait for human confirmation before proceeding. **After confirmation**, `write-test-plan` uploads the approved manual QA cases to TestSecret (`testsecret` MCP) as `Draft` — section and tag named after the feature, TestSecret case ids written back into `test-plan.html`. TestSecret is the authoritative case library from that point on; Step 7a validates against it and records results there.
+Wait for human confirmation before proceeding.
 
 ---
 
@@ -281,9 +287,9 @@ Wait for human confirmation before proceeding. **After confirmation**, `write-te
 **Skill**: `fatsecret-workflow:writing-plans`
 **Condition**: Always (Full Track).
 
-Uses all prior outputs (story-analysis, design, test plan) as input.
+Uses all prior outputs (story-analysis, design including its Verification Plan) as input.
 
-**Default: an Execution Checklist, not a separate document.** For most features, `writing-plans` produces a lightweight checklist appended to `design.html` — one entry per task: title, exact Files (+ Figma nodeId for UI files), the Verification rows it owns (from the test plan's Verification Plan), its acceptance point, and the standard Implement → Verify → Review → Commit steps. **No code blocks** — implementers read the real files at task time.
+**Default: an Execution Checklist, not a separate document.** For most features, `writing-plans` produces a lightweight checklist appended to `design.html` — one entry per task: title, exact Files (+ Figma nodeId for UI files), the Verification rows it owns (from the Verification Plan), its acceptance point, and the standard Implement → Verify → Review → Commit steps. **No code blocks** — implementers read the real files at task time.
 
 **No separate plan document.** A task that will be dispatched to a subagent or performs a destructive migration carries its extra detail inside its own checklist entry — see `writing-plans` "One Artifact".
 
@@ -308,7 +314,7 @@ Before starting each new task, run `git status` to confirm the prior task commit
 > **▶ Task N — \<title\>**
 > - **Goal**: the observable outcome this task delivers — its acceptance point
 > - **Files**: the declared Files list (+ Figma nodeId for UI files)
-> - **Verification**: the entry's Verification rows (criteria + method), or "manual QA + review only — pure UI"; plus its Re-run list
+> - **Verification**: the entry's Verification rows (criteria + method), or "simulator check + review — pure UI"; plus its Re-run list
 
 This is the checklist entry re-read aloud, not a re-plan: it re-anchors on the artifact at every task boundary (the same discipline Invariant 5 applies after compaction) and gives the human a glanceable checkpoint — a surprising brief gets caught before code is written, not at review. If what you were about to do doesn't match the brief, stop and re-read the checklist instead of improvising. Delegated tasks carry the same brief at the top of the dispatch prompt.
 
@@ -330,6 +336,7 @@ When the design changes after tasks have been built (a new meeting decision, a r
 1. Update `design.html` first — new/changed D-numbers — and diff the old vs new decisions.
 2. List every already-completed task the delta affects.
 3. Confirm the list with the human, then fix the affected completed tasks FIRST (each fix passes the normal review → commit gate) before building new tasks.
+4. If a changed decision was in the Shortcut decision summary, post an update comment on the affected stories saying what changed (same approve-before-post rule) — QA may already be writing cases from the old one.
 
 ---
 
@@ -337,14 +344,14 @@ When the design changes after tasks have been built (a new meeting decision, a r
 
 Two sub-steps to close out the feature. **Evidence before claims** applies to both: any completion claim ("verified", "build succeeds", "bug fixed") is made only after its verification command has run *in this session* with output confirming it — no "should pass", no extrapolating from an earlier run, no trusting a subagent's success report without reading the diff.
 
-### 7a. Test plan verification [blocking]
+### 7a. Deliverable verification [blocking]
 
 **Skill**: `fatsecret-workflow:validate-test-plan`
 **Condition**: Always (Full Track).
 
-Validate implementation coverage against the test plan — refute-first, typed verdicts per sub-clause, runtime/external clauses punted explicitly rather than graded from static reading. **Blocking:** unresolved acceptance gaps stop the workflow here — do not proceed to 7c unless the user explicitly defers a gap (record the deferral and reason in the test plan); each punt-list item needs the human's do-or-waive call. For features whose per-task review gates were structurally weak — no Figma AND no unit-testable logic (e.g. backend-integration work) — 7a must include verification against the real backend/integration (the skill's runtime pass), or an explicit user waiver.
+Validate the implementation against the Verification Plan and the design's acceptance points — plus QA's test cases for the feature in TestSecret, when QA has written them by now — refute-first, typed verdicts per sub-clause, runtime/external clauses punted explicitly rather than graded from static reading. **Blocking:** unresolved acceptance gaps stop the workflow here — do not proceed to 7c unless the user explicitly defers a gap (record the deferral and reason in `design.html`); each punt-list item needs the human's do-or-waive call. For features whose per-task review gates were structurally weak — no Figma AND no unit-testable logic (e.g. backend-integration work) — 7a must include verification against the real backend/integration (the skill's runtime pass), or an explicit user waiver.
 
-After the human resolves the report, the skill records the outcome to TestSecret (Phase 5): a run whose per-case results carry the verdicts (`Dev-Verified` / `AI-Tested` / `Failed` / `Retest` / `Skipped`), with punted cases left `Untested` — that Untested set is QA's manual queue.
+When QA's cases were validated, after the human resolves the report the skill records the outcome to TestSecret (Phase 5): a run whose per-case results carry the verdicts (`Dev-Verified` / `AI-Tested` / `Failed` / `Retest` / `Skipped`), with punted cases left `Untested` — that Untested set is QA's manual queue.
 
 ### 7c. Finish branch
 

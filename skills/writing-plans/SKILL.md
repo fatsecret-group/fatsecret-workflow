@@ -7,11 +7,11 @@ description: Use when a confirmed design needs to be turned into an executable t
 
 ## Overview
 
-Turn a confirmed design + test plan into an executable task breakdown. The output is a lightweight **Execution Checklist** appended to `design.html` — the only plan artifact; a task that needs more carries the detail inside its own entry (see "One Artifact").
+Turn a confirmed design and its Verification Plan into an executable task breakdown. The output is a lightweight **Execution Checklist** appended to `design.html` — the only plan artifact; a task that needs more carries the detail inside its own entry (see "One Artifact").
 
 Assume the implementer is a skilled developer who knows almost nothing about this codebase — every task names its exact files, tests, and acceptance point. But do NOT front-load code: implementers read the real files at task time. Plans that embed large code blocks go stale the moment the design shifts, and their API references are unverified until something compiles. DRY. YAGNI.
 
-**Project reality — deliverable criteria over unit tests.** Every task's verification comes from the test plan's **Verification Plan**: one row per deliverable (criteria → method), confirmed by the human. Methods: **script + fixture** in `verification/<feature>/` (view models / server interaction; assert on the Proxyman capture when available, else on the script's own input/output), **review-only** (mapping/assembly model code — the Codex/advisor verdict is the evidence), **unit test** ONLY for wrong-answer-is-a-bug logic (calculations, conversions, state transitions; written failing-first, `test_sim` scoped with `-only-testing:` — never run the whole target), **integration test** only for persistence contracts. UI tests and snapshot tests stay out of scope; pure-UI tasks verify via `review-task`'s simulator pass. Tasks execute their own rows and nothing beyond them; downstream re-verification is owned by `review-task`. Plans MUST NOT prescribe UI-test-writing steps or standalone build steps.
+**Project reality — deliverable criteria over unit tests.** Every task's verification comes from the **Verification Plan** in `design.html`: one row per deliverable (criteria → method), confirmed by the human. Methods: **script + fixture** in `verification/<feature>/` (view models / server interaction; assert on the Proxyman capture when available, else on the script's own input/output), **review-only** (mapping/assembly model code — the Codex/advisor verdict is the evidence), **unit test** ONLY for wrong-answer-is-a-bug logic (calculations, conversions, state transitions; written failing-first, `test_sim` scoped with `-only-testing:` — never run the whole target), **integration test** only for persistence contracts. UI tests and snapshot tests stay out of scope; pure-UI tasks verify via `review-task`'s simulator pass. Tasks execute their own rows and nothing beyond them; downstream re-verification is owned by `review-task`. Plans MUST NOT prescribe UI-test-writing steps or standalone build steps.
 
 **Commit timing.** Each task MUST end with an explicit "Commit & mark complete" step. The checklist/plan is the single source of truth for when commits happen.
 
@@ -91,7 +91,7 @@ Append to `design.html` as a final section ("Execution Checklist"), using the sh
 
 - **Title** — descriptive, referenced as "Task 3 (Target screen wiring)", never a bare "Task 3"
 - **Files** — Create/Modify with exact paths; Figma nodeId for UI files
-- **Verification** — the rows from the test plan's Verification Plan this task owns: each deliverable's criteria + method (script+fixture / review-only / unit / integration), or "manual QA + review only (pure UI)"
+- **Verification** — the rows from the Verification Plan this task owns: each deliverable's criteria + method (script+fixture / review-only / unit / integration), or "simulator check + review (pure UI)"
 - **Re-run** — the existing test classes and verification scripts that exercise the code this task's Files change, named explicitly (grep the test target and `verification/` for the types in Files while writing the plan), or "none". This list is decided here and confirmed at the Step 5 gate; `review-task` runs exactly it plus the task's own verification and makes no selection of its own
 - **Acceptance** — the observable outcome that makes this task done
 - **Steps** — the standard cycle (write it once at the top of the section, not per task):
@@ -127,10 +127,10 @@ Every task must contain what an engineer needs to execute it. These are **plan f
 
 After writing the checklist/plan, look at the spec with fresh eyes and check against it:
 
-1. **Spec coverage:** Can you point to a task for each requirement in the design + test plan? List any gaps.
+1. **Spec coverage:** Can you point to a task for each requirement in the design and its Verification Plan? List any gaps.
 2. **Placeholder scan:** Search for the "No Placeholders" patterns above. Fix them.
 3. **Consistency:** Do names, signatures, and file paths match across tasks — and match the actual codebase? A function called `clearLayers()` in Task 3 but `clearFullLayers()` in Task 7 is a bug.
-4. **Verification mapping:** Is every row in the test plan's Verification Plan owned by exactly one task? Does every task's Re-run list name real test classes / verification scripts that exist?
+4. **Verification mapping:** Is every row in the Verification Plan owned by exactly one task? Does every task's Re-run list name real test classes / verification scripts that exist?
 
 Fix issues inline and move on. If a spec requirement has no task, add the task.
 

@@ -39,9 +39,9 @@ Some skills integrate with external tools via MCP. The full feature-workflow che
 |------------|---------|---------|-----------|
 | [XcodeBuildMCP](https://github.com/getsentry/XcodeBuildMCP) | `run`, `review-task`, `feature-workflow` | Build, run, tests, UI automation | required — reported at Step 1 |
 | [Figma MCP](https://github.com/figma/figma-mcp) | `story-analysis`, `figma-driven-implementation`, `review-task` | Design-to-code workflow | required for UI features |
-| [Shortcut MCP](https://www.npmjs.com/package/@shortcut/mcp) | `story-analysis`, `feature-workflow` | Read stories from Shortcut; search historical stories during design grilling | recorded in `design.html`; human supplies past stories |
+| [Shortcut MCP](https://www.npmjs.com/package/@shortcut/mcp) | `story-analysis`, `feature-workflow` | Read stories; search historical stories during design grilling; post the agreed decision summary to each story for QA | human pastes stories in / pastes the approved summary onto the stories |
 | [Codex MCP](https://github.com/openai/codex) | `feature-workflow` (design challenge), `write-test-plan` (coverage challenge), `review-task` (review debate) | Independent adversary for the three review gates | built-in `/code-review` (review-task) or a fresh-context subagent (design & coverage challenges) |
-| [TestSecret](https://claude.ai/code/artifact/656220b8-5cc5-46de-8880-e330839cbb62) | `write-test-plan`, `validate-test-plan` | Authoritative QA case library: case upload + result write-back | upload/write-back deferred with a note |
+| [TestSecret](https://claude.ai/code/artifact/656220b8-5cc5-46de-8880-e330839cbb62) | `validate-test-plan` | Where QA keeps their test cases: Step 7a validates them and writes results back when they exist | Step 7a validates the dev side only, with a note |
 | [Proxyman MCP](https://proxyman.com) | `validate-test-plan` | Runtime network capture for runtime-only cases | those cases stay punted to manual QA |
 
 <details>
@@ -124,7 +124,7 @@ Requires `OPENAI_API_KEY` environment variable.
 | Skill | Description |
 |-------|-------------|
 | `story-analysis` | Analyze Shortcut stories + Figma designs into executable items |
-| `write-test-plan` | Generate test plans from stories/requirements; on approval, uploads the manual QA cases to TestSecret (`testsecret` MCP) as Draft — the authoritative case library |
+| `write-test-plan` | Write the Verification Plan — dev's own test considerations, one row per deliverable (criteria → method), appended to `design.html`. QA owns the manual test cases; nothing is uploaded |
 
 ### Implementation
 
@@ -138,7 +138,7 @@ Requires `OPENAI_API_KEY` environment variable.
 | Skill | Description |
 |-------|-------------|
 | `review-task` | Per-task review: spec compliance + UI verification + Codex debate (built-in `/code-review` fallback when Codex is unavailable) |
-| `validate-test-plan` | Validate a test plan against the implementation — refute-first verdicts per sub-clause; criticality × verifiability routing shrinks the manual-QA list; runtime clauses captured via simulator + Proxyman or explicitly punted; outcome recorded to TestSecret as a run (Dev-Verified / AI-Tested / Failed / Retest / Skipped; punted cases stay Untested as QA's manual queue) |
+| `validate-test-plan` | Validate the Verification Plan and acceptance points (plus QA's TestSecret cases when they exist) against the implementation — refute-first verdicts per sub-clause; criticality × verifiability routing shrinks the manual-QA list; runtime clauses captured via simulator + Proxyman or explicitly punted; outcome on QA's cases recorded to TestSecret as a run (Dev-Verified / AI-Tested / Failed / Retest / Skipped; punted cases stay Untested as QA's manual queue) |
 
 ## Per-project setup
 

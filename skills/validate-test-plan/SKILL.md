@@ -1,6 +1,6 @@
 ---
 name: validate-test-plan
-description: Use when a test plan (test-plan.html, a CSV, or any case list) needs to be validated against the implementation — refute-first verification with typed verdicts and evidence, criticality × verifiability routing that shrinks the manual-QA list, and explicit punting of what static reading cannot prove. Backs feature-workflow Step 7a and records the outcome to TestSecret (release/run + per-case results); also runs standalone on any test plan.
+description: Use when a feature's deliverables or a test plan (a Verification Plan, QA's TestSecret cases, a CSV, or any case list) need to be validated against the implementation — refute-first verification with typed verdicts and evidence, criticality × verifiability routing that shrinks the manual-QA list, and explicit punting of what static reading cannot prove. Backs feature-workflow Step 7a (Verification Plan + acceptance points, plus QA's cases when they exist, with results written back to TestSecret); also runs standalone on any test plan.
 ---
 
 # Validate Test Plan
@@ -13,7 +13,7 @@ Verify that a test plan's cases are actually implemented. The core discipline: *
 
 ## Input
 
-- **The test plan**: `test-plan.html` (from `write-test-plan`), a CSV, or any structured case list. Parse every case into ID/title, preconditions, steps, and its individual **expected-result sub-clauses** — one case usually asserts 3–4 distinct things (a field exists, its value maps correctly, a log line prints, parity with another platform). Sub-clauses are the unit of verification, never the case as a blob.
+- **What to validate.** *In feature-workflow Step 7a*: the Verification Plan rows and acceptance points in `design.html`, plus QA's test cases for the feature in TestSecret when QA has written them by now — ask the human for the TestSecret section or tag, or search by story ID (`query_cases`); none yet, or TestSecret unreachable → validate the dev side only and say so in the report. *Standalone*: any test plan, CSV, or structured case list. Parse every case into ID/title, preconditions, steps, and its individual **expected-result sub-clauses** — one case usually asserts 3–4 distinct things (a field exists, its value maps correctly, a log line prints, parity with another platform). Sub-clauses are the unit of verification, never the case as a blob.
 - **Scope (optional, preferred)**: the feature folder (`design.html` + execution checklist / implementation plan) and/or a git range. Without it (legacy or standalone plans), Phase 1 falls back to code search.
 
 ## Phase 0 — Classify every case on two axes
@@ -81,13 +81,13 @@ One table: case → criticality → class → verdict → evidence / punt reason
 - **Evidence-review list** (critical ∩ machine-verified): the citations / test runs / captures, ready for the human's spot-check
 - **Risk-acceptance list** (non-critical ∩ not machine-verifiable): items awaiting the human's waive sign-off — recorded as accepted risk, never as verified
 
-**In feature-workflow Step 7a** this report is the gate's input: gaps block Step 7c unless the human explicitly defers them (record the deferral in the test plan); the punt list requires the human's do-or-waive call. **Standalone**: the report is the deliverable — fixes are a separate ask.
+**In feature-workflow Step 7a** this report is the gate's input: gaps block Step 7c unless the human explicitly defers them (record the deferral in `design.html`); the punt list requires the human's do-or-waive call. **Standalone**: the report is the deliverable — fixes are a separate ask.
 
 ## Phase 5 — Record results in TestSecret (feature-workflow context)
 
-After the human resolves the Phase 4 report (do-or-waive calls made), write the outcome back to TestSecret (the `testsecret` MCP) so QA sees one live picture. Skip with an explicit note if the plan was never uploaded (no feature tag in TestSecret) or the server is unreachable — the write-back never blocks the gate.
+After the human resolves the Phase 4 report (do-or-waive calls made), write the outcome back to TestSecret (the `testsecret` MCP) so QA sees one live picture. Runs only when QA's cases were validated in this pass; skip with an explicit note when QA has no cases yet or the server is unreachable — the write-back never blocks the gate.
 
-1. Locate the feature's cases: `list_cases` by the feature tag (uploaded by `write-test-plan`; case ids also sit in `test-plan.html` rows).
+1. The feature's cases: the QA cases located under Input.
 2. Release: `list_releases` (`state: active`); confirm the target with the user, or `create_release` named after the feature (`idempotency_key` via `uuidgen`).
 3. `create_run` in that release — name `<feature> — 7a validation`, `build` = the verified build when known, `case_ids` = the feature's case ids.
 4. `list_tests` on the run to map case → `test_id`, then `bulk_add_results` (≤200, `idempotency_key`) with this verdict mapping (case rollup):
