@@ -1,6 +1,6 @@
 ---
 name: story-analysis
-description: Use when starting a feature with Stories (from Shortcut, text, etc.) and optionally Figma designs — analyzes stories, explores codebase for hidden associations, and produces structured executable items for downstream design and planning
+description: Use when starting a feature with Stories (from Shortcut, text, etc.) and optionally Figma designs — analyzes stories, explores codebase for hidden associations, and produces structured executable items for downstream design, test planning and coding plans
 ---
 
 ## When to Use

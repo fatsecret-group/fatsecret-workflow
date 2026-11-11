@@ -45,7 +45,7 @@ Run this at Step 1 and present **one readiness table** (MCP servers + the Codex 
 - Codex CLI (`codex`) — external peer reviewer for the three adversarial gates (design challenge, coverage challenge, `review-task` debate). Called through the **Codex CLI** (`codex exec --sandbox read-only`; `codex review` for a diff) — Codex has no MCP server. CLI not installed or not signed in → the design and coverage challenges run via a fresh-context subagent and `review-task`'s debate via Claude Code's built-in `/code-review`. The adversarial gates themselves are NOT optional — only who plays the adversary changes.
 - `proxyman` — network capture for script-row verification (Step 6 / `review-task`) and `validate-test-plan` Phase 3. Without it, script rows assert on the script's own input/output — except rows about a request the app itself sends, which only a capture can observe: those are reported UNVERIFIED and carried to Step 7a — and capture-dependent R cases stay PUNTED to manual QA.
 - `shortcut` — reads the stories (Step 2) and posts the decision summary to them (Step 3 gate). Unavailable → the human pastes the stories in, and the approved summary is handed to the human to paste onto each story.
-- `testsecret` — TestSecret, where QA keeps their test cases: Step 7a validates QA's cases for the feature and writes results back when they exist by then. Unreachable or not configured → Step 7a validates the dev side only, with an explicit note to the user (setup guide: https://claude.ai/code/artifact/656220b8-5cc5-46de-8880-e330839cbb62).
+- `testsecret` — TestSecret, where QA keeps their test cases: Step 4 uploads the draft cases as Draft; Step 7a validates the feature's cases and writes results back. Unreachable or not configured → the upload is deferred with a note in `test-plan.html` and Step 7a validates the dev side only, both stated to the user (setup guide: https://claude.ai/code/artifact/656220b8-5cc5-46de-8880-e330839cbb62).
 
 **Worktree readiness** (same table): a fresh git worktree does not carry git-excluded local files. Before Step 2, confirm the working copy has the project's `REVIEW.md` (when the project keeps one), the dependencies the build needs (e.g. `Pods/` in sync with its lockfile), and the project-scoped MCP config (`.mcp.json`) — copy or link them from the main checkout when missing.
 
@@ -59,15 +59,15 @@ Step 1: Introduction        — collect input, pick track, confirm output folder
   └─ Full Track:
      Step 2: Story Analysis      — understand stories + explore code [skip if no stories]
      Step 3: Design Exploration  — architecture decisions, grounded in real code; adversarial design challenge; implementation Q&A; decisions posted to the Shortcut stories for QA
-     Step 4: Verification Plan   — dev's own test considerations per deliverable, appended to design.html; mandatory adversarial coverage challenge (QA writes the test cases)
+     Step 4: Test Plan           — dev's Verification Plan (in design.html) + draft QA cases (test-plan.html, uploaded to TestSecret as Draft); mandatory adversarial coverage challenge
      Step 5: Execution Plan      — execution checklist appended to design.html
      Step 6: Build               — execute each task; review-task gates every commit
-     Step 7: Verify & Ship       — blocking deliverable verification (+ QA's cases when they exist) + finish branch
+     Step 7: Verify & Ship       — blocking deliverable verification (+ the feature's TestSecret cases) + finish branch
 ```
 
 ## Lite Track — bug fixes, mechanical refactors, small UI tweaks
 
-Choose this in Step 1 when the work is a bug fix, a mechanical refactor, or a small UI change rather than a new feature — **and only when the work is genuinely small**: a refactor that is a destructive migration, spans subsystems, or needs more than ~5 tasks is Full Track work no matter how mechanical it feels. No documents are produced (no story-analysis, design, Verification Plan or checklist), but **all Invariants still apply** — most importantly the per-task review gate (Invariant 2) and the commit policy (Invariant 1).
+Choose this in Step 1 when the work is a bug fix, a mechanical refactor, or a small UI change rather than a new feature — **and only when the work is genuinely small**: a refactor that is a destructive migration, spans subsystems, or needs more than ~5 tasks is Full Track work no matter how mechanical it feels. No documents are produced (no story-analysis, design, Verification Plan, test plan or checklist), but **all Invariants still apply** — most importantly the per-task review gate (Invariant 2) and the commit policy (Invariant 1).
 
 1. **Diagnose before touching code (bug fixes).** State the suspected triggering path/layer and confirm it with evidence — a reproduction, a code trace, or logs — before editing. If you cannot confirm which layer fires the behavior, say so and keep investigating; do not fix a hypothesis. (The **Diagnosis Method** below is the method.)
 2. **Minimal diff.** Fix only what the ticket describes. Never bundle changes to adjacent working code — "while I'm here" is a red flag.
@@ -94,7 +94,8 @@ All workflow artifacts for a feature are saved under a single folder:
 ```
 docs/plans/<feature-name>/
   ├── story-analysis.html       (from Step 2)
-  └── design.html               (from Step 3; includes the Verification Plan from Step 4 and the Execution Checklist from Step 5)
+  ├── design.html               (from Step 3; includes the Verification Plan from Step 4 and the Execution Checklist from Step 5)
+  └── test-plan.html            (from Step 4 — draft QA cases, uploaded to TestSecret)
 ```
 
 The feature folder name is confirmed with the user in Step 1. `docs/plans/` and `verification/` are relative to the project's **source root** — the folder that already holds `docs/plans/` (in some repos an app subfolder, not the git root).
@@ -109,7 +110,7 @@ A project may override the format in its own CLAUDE.md (e.g. `docs/plans/<area>/
 
 ### Document language — English
 
-**Everything this workflow writes down is in English**, regardless of the language the human and the model are conversing in: the plan artifacts above, their diagrams, the Verification Plan and Execution Checklist, the decision summaries posted to Shortcut stories, TestSecret result comments, `CODEBASE-KNOWLEDGE.md` entries, code comments, and commit messages. These outlive the conversation and are read by the wider team, by QA on the stories and in TestSecret, and by tooling — the chat language is one person's channel preference, not a property of the artifact. Quoting a human's or a story's exact wording in its original language is fine where the wording itself is the point; the surrounding document stays English.
+**Everything this workflow writes down is in English**, regardless of the language the human and the model are conversing in: the plan artifacts above, their diagrams, the Verification Plan and Execution Checklist, the decision summaries posted to Shortcut stories, TestSecret cases and result comments, `CODEBASE-KNOWLEDGE.md` entries, code comments, and commit messages. These outlive the conversation and are read by the wider team, by QA on the stories and in TestSecret, and by tooling — the chat language is one person's channel preference, not a property of the artifact. Quoting a human's or a story's exact wording in its original language is fine where the wording itself is the point; the surrounding document stays English.
 
 ---
 
@@ -124,7 +125,8 @@ Some efforts are too large to run as a single feature (a migration, a multi-subs
      ├── story-analysis.html            (project-wide, done ONCE)
      ├── CLAUDE.md                      (project conventions: doc format, logging, …)
      └── phase-N-<name>/
-         └── design.html                (this phase — Step 3; includes its Verification Plan and Execution Checklist)
+         ├── design.html                (this phase — Step 3; includes its Verification Plan and Execution Checklist)
+         └── test-plan.html             (this phase — Step 4)
    ```
    For each phase, treat its subfolder as the feature folder and run **Steps 3–6 plus the per-phase verification (Step 7a)**; Step 7b (finish branch) is NOT per-phase — it follows point 4's timing. **Skip Step 2's story gathering** — the project-level analysis already covers it (only re-open it if a phase surfaces genuinely new stories). But Steps 3–5 STILL take the project-root `story-analysis.html` as their story-analysis input: treat it as the *"with story analysis"* path in Step 3, not *"explore from scratch."*
 3. **Design decisions are numbered and shared across phases** (`D1`, `D6`, …) so later phases reference earlier ones. Record them in each phase's `design.html` and cross-link.
@@ -145,7 +147,7 @@ Present this to the user and collect input:
 > **Analyze** → understand stories, explore code for hidden impacts
 > **Design** → architecture decisions grounded in the real code (adversarial design challenge, then implementation Q&A)
 > **Share with QA** → post the agreed decisions to the Shortcut stories, so QA writes their cases from the same understanding
-> **Verification Plan** → how dev proves each deliverable done (adversarial coverage challenge)
+> **Test Plan** → how dev proves each deliverable done, plus draft QA cases uploaded to TestSecret (adversarial coverage challenge)
 > **Plan** → execution checklist
 > **Build** → implement, verify each task per its deliverable criteria, review, commit
 >
@@ -265,7 +267,7 @@ Follow the conventions in `references/code-graph.md` (in this skill's directory)
 
 ### Share decisions with QA (Shortcut)
 
-QA writes the test cases, with their own method, and usually after dev has started — so dev and QA can read the same story two ways. Closing the gate therefore includes posting the agreed decisions onto the Shortcut stories, so QA writes their cases from the same understanding dev is building from. Skip this when the feature has no Shortcut stories (Step 2 was skipped).
+QA owns the test cases and works with their own method, usually after dev has started — so dev and QA can read the same story two ways. Closing the gate therefore includes posting the agreed decisions onto the Shortcut stories, so QA writes their cases from the same understanding dev is building from. Skip this when the feature has no Shortcut stories (Step 2 was skipped).
 
 - **One comment per story**, covering what applies to that story, in English. Content is *decisions, not thinking*: the behavior-affecting D-decisions in plain product language (no class or file names); out of scope / non-goals; the concrete input → expected-output examples, edge and error cases included; the edge cases and risk areas dev considered; and open questions still waiting on PM. Leave out the exploration, the alternatives weighed, and implementation detail.
 - **The human approves the draft before anything is posted** — show it in the same turn as the closing gate; a story comment is visible to the whole team. Then post with `mcp__shortcut__stories-create-comment`. Shortcut MCP unavailable → hand the approved text to the human to paste.
@@ -273,14 +275,17 @@ QA writes the test cases, with their own method, and usually after dev has start
 
 ---
 
-## Step 4 — Verification Plan [human gate]
+## Step 4 — Test Plan [human gate]
 
 **Skill**: `fatsecret-workflow:write-test-plan`
 **Condition**: Always (Full Track).
 
-Uses the confirmed design and the story-analysis output (if available) as input. **QA owns the manual test cases — this step writes none and uploads nothing.**
+Uses the confirmed design and the story-analysis output (if available) as input. Produces two artifacts with two owners:
 
-The Verification Plan is the developer's own test considerations, appended to `design.html`: one row per deliverable — criteria (the observable result that proves it) → method (script+fixture in `verification/<feature>/` / review-only / simulator check / unit test for wrong-answer-is-a-bug logic / integration test for persistence contracts). **The human confirms it as one table in one batch** — the criteria and method per deliverable are the human's call, corrected per row in their reply, never asked one row at a time. Before it is finalized, `write-test-plan` runs a **mandatory devil's-advocate coverage challenge** — Codex when available, a fresh-context subagent otherwise; the gate itself is not skippable.
+- **Draft QA test plan** — manual cases written from the confirmed design, saved as `docs/plans/<feature-name>/test-plan.html` and, after approval, uploaded to TestSecret as **Draft**. A head start for QA, not the final word: from upload on QA owns the cases and reviews, edits and promotes them.
+- **Verification Plan** — the developer's own test considerations, appended to `design.html`: one row per deliverable — criteria (the observable result that proves it) → method (script+fixture in `verification/<feature>/` / review-only / simulator check / unit test for wrong-answer-is-a-bug logic / integration test for persistence contracts). **The human confirms it as one table in one batch** — the criteria and method per deliverable are the human's call, corrected per row in their reply, never asked one row at a time.
+
+Before either is finalized, `write-test-plan` runs a **mandatory devil's-advocate coverage challenge** over both — Codex when available, a fresh-context subagent otherwise; the gate itself is not skippable. One human gate covers both; the upload follows approval.
 
 Wait for human confirmation before proceeding.
 
@@ -355,9 +360,9 @@ Two sub-steps to close out the feature. **Evidence before claims** applies to bo
 **Skill**: `fatsecret-workflow:validate-test-plan`
 **Condition**: Always (Full Track).
 
-7a does not re-run what Step 6 already proved. It validates what no task verified: acceptance points in `design.html` that no Verification Plan row covers, rows left UNVERIFIED or punted at a task's review gate, and QA's test cases for the feature in TestSecret when QA has written them by now. Rows a task's review already verified are cited from that review's evidence, not run again; when nothing is left to validate, say so in one line and move on. The validation is refute-first, typed verdicts per sub-clause, runtime/external clauses punted explicitly rather than graded from static reading. **Blocking:** unresolved acceptance gaps stop the workflow here — do not proceed to 7b unless the user explicitly defers a gap (record the deferral and reason in `design.html`); each punt-list item needs the human's do-or-waive call. For features whose per-task review gates were structurally weak — no Figma AND no unit-testable logic (e.g. backend-integration work) — 7a must include verification against the real backend/integration (the skill's runtime pass), or an explicit user waiver.
+7a does not re-run what Step 6 already proved. It validates what no task verified: acceptance points in `design.html` that no Verification Plan row covers, rows left UNVERIFIED or punted at a task's review gate, and the feature's cases in TestSecret (the uploaded draft, as QA has since edited it). Rows a task's review already verified are cited from that review's evidence, not run again; when nothing is left to validate, say so in one line and move on. The validation is refute-first, typed verdicts per sub-clause, runtime/external clauses punted explicitly rather than graded from static reading. **Blocking:** unresolved acceptance gaps stop the workflow here — do not proceed to 7b unless the user explicitly defers a gap (record the deferral and reason in `design.html`); each punt-list item needs the human's do-or-waive call. For features whose per-task review gates were structurally weak — no Figma AND no unit-testable logic (e.g. backend-integration work) — 7a must include verification against the real backend/integration (the skill's runtime pass), or an explicit user waiver.
 
-When QA's cases were validated, after the human resolves the report the skill records the outcome to TestSecret (Phase 5): a run whose per-case results carry the verdicts (`Dev-Verified` / `AI-Tested` / `Failed` / `Retest` / `Skipped`), with punted cases left `Untested` — that Untested set is QA's manual queue.
+When the TestSecret cases were validated, after the human resolves the report the skill records the outcome to TestSecret (Phase 5): a run whose per-case results carry the verdicts (`Dev-Verified` / `AI-Tested` / `Failed` / `Retest` / `Skipped`), with punted cases left `Untested` — that Untested set is QA's manual queue.
 
 ### 7b. Finish branch
 

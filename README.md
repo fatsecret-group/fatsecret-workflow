@@ -42,7 +42,7 @@ Some skills integrate with external tools. The full feature-workflow checks them
 | [Figma MCP](https://developers.figma.com/docs/figma-mcp-server/) | `story-analysis`, `figma-driven-implementation`, `review-task` | Design-to-code workflow | required for UI features |
 | [Shortcut MCP](https://www.npmjs.com/package/@shortcut/mcp) | `story-analysis`, `feature-workflow` | Read stories; search historical stories during design grilling; post the agreed decision summary to each story for QA | human pastes stories in / pastes the approved summary onto the stories |
 | [Codex CLI](https://github.com/openai/codex) | `feature-workflow` (design challenge), `write-test-plan` (coverage challenge), `review-task` (review debate) | Independent adversary for the three review gates | built-in `/code-review` (review-task) or a fresh-context subagent (design & coverage challenges) |
-| [TestSecret](https://claude.ai/code/artifact/656220b8-5cc5-46de-8880-e330839cbb62) | `validate-test-plan` | Where QA keeps their test cases: Step 7a validates them and writes results back when they exist | Step 7a validates the dev side only, with a note |
+| [TestSecret](https://claude.ai/code/artifact/656220b8-5cc5-46de-8880-e330839cbb62) | `write-test-plan`, `validate-test-plan` | Where QA keeps their test cases: Step 4 uploads the draft cases as Draft; Step 7a validates the feature's cases and writes results back | upload deferred with a note; Step 7a validates the dev side only |
 | [Proxyman MCP](https://proxyman.com) | `review-task`, `validate-test-plan` | Network capture for script-based verification and runtime-only cases | scripts assert on their own input/output; capture-only cases stay punted to manual QA |
 
 <details>
@@ -122,7 +122,7 @@ The workflow calls the CLI directly (`codex exec --sandbox read-only`, `codex re
 |-------|-------------|
 | `story-analysis` | Analyze Shortcut stories + Figma designs into executable items |
 | `writing-plans` | Turn the confirmed design into the Execution Checklist appended to `design.html` — one entry per task (files, verification rows, acceptance point) |
-| `write-test-plan` | Write the Verification Plan — dev's own test considerations, one row per deliverable (criteria → method), appended to `design.html`. QA owns the manual test cases; nothing is uploaded |
+| `write-test-plan` | Write the Verification Plan (dev's own test considerations, one row per deliverable, appended to `design.html`) and a draft QA test plan (`test-plan.html`), uploaded to TestSecret as Draft for QA to own |
 
 ### Implementation
 
@@ -135,7 +135,7 @@ The workflow calls the CLI directly (`codex exec --sandbox read-only`, `codex re
 | Skill | Description |
 |-------|-------------|
 | `review-task` | Per-task review before every commit: sensitive-area sweep (project `REVIEW.md`), spec compliance, UI verification against Figma, Codex debate (built-in `/code-review` fallback), the task's declared verification, simplification — then a mandatory human approval gate |
-| `validate-test-plan` | Validate what the per-task reviews left unproven (uncovered acceptance points, unverified rows) plus QA's TestSecret cases when they exist — refute-first verdicts per sub-clause; criticality × verifiability routing shrinks the manual-QA list; runtime clauses captured via simulator + Proxyman or explicitly punted; outcome on QA's cases recorded to TestSecret as a run (Dev-Verified / AI-Tested / Failed / Retest / Skipped; punted cases stay Untested as QA's manual queue) |
+| `validate-test-plan` | Validate what the per-task reviews left unproven (uncovered acceptance points, unverified rows) plus the feature's TestSecret cases — refute-first verdicts per sub-clause; criticality × verifiability routing shrinks the manual-QA list; runtime clauses captured via simulator + Proxyman or explicitly punted; outcome on QA's cases recorded to TestSecret as a run (Dev-Verified / AI-Tested / Failed / Retest / Skipped; punted cases stay Untested as QA's manual queue) |
 
 ## Per-project setup
 

@@ -1,7 +1,7 @@
 {
   "name": "fatsecret-workflow",
   "description": "FatSecret iOS team workflow: feature development lifecycle, story analysis, test planning, Figma-driven implementation, and code review",
-  "version": "1.21",
+  "version": "1.22",
   "author": {
     "name": "FatSecret"
   },
