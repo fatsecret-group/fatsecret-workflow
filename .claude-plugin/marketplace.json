@@ -8,7 +8,7 @@
       "name": "fatsecret-workflow",
       "source": "./",
       "description": "FatSecret delivery team workflow: feature development lifecycle, story analysis, test planning, Figma-driven implementation, and code review",
-      "version": "1.22"
+      "version": "1.23"
     }
   ]
 }

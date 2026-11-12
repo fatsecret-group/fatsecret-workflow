@@ -93,6 +93,8 @@ If a codebase is available (i.e. the skill is running within a code project):
 - Based on the intent extracted from Stories, search the codebase for related code
 - For each discovered association, record: location, current function, why it may be affected
 - **Term disambiguation**: For every domain-specific term in the Stories (UI element names, feature names, action verbs), search the codebase for all implementations that match or relate to that term. If multiple distinct implementations are found for the same term, collect them for the Confirmation Gate — ask the human which one the Story refers to and whether the others are also affected.
+- **Reverse inventory — who else touches what this changes.** The Stories say what the new feature does; the bugs live in the places they never mention. For every thing the Stories rename, re-scope, reuse or start writing — a user-facing term or number format, an analytics event or property, a persisted value or preference key, a flag, a shared model field — search for **every** place that shows, reads, writes or emits it, in every variant of the app (old and new flows, phone and tablet, widgets and extensions). Record one row per place: where it is (`file:line`), what it does with the thing today, and whether this feature must change it. Typical misses this catches: the list a rename skipped, the older code path that still fires an event whose meaning just changed, the already-open parent screen that keeps showing the old value after a save.
+- **"Unchanged" is a claim, and a claim needs a look.** Never write "unchanged", "reuses the existing logic", "same as <other variant or platform>" or "out of scope" from the Story's wording alone — open the code and cite what you read. When the feature mirrors, replaces or joins existing logic, **that code is the spec**: list the conditions it runs under (consent, locale or market, account state), what else it does on the way (data it fetches, state it sets, events it fires), and the exact parameter and field names it sends — then say which of those the new work keeps. A screen or module declared out of scope that displays or derives from data this feature writes is still in scope for refresh.
 
 If no codebase is available, inform the user and ask for confirmation to proceed without code exploration. If confirmed, skip this step and continue — the output will note that code associations were not analyzed.
 
@@ -122,6 +124,7 @@ Do not resolve readiness here — that belongs to the Confirmation Gate. Just co
 Present to the user:
 - Feature flows and affected areas discovered from the codebase, organized by functionality (not raw code locations)
 - Related existing behavior that may need to change or be tested alongside the new work
+- **The reverse inventory**, as one table, with the rows proposed as "no change needed" called out — the human corrects rows in their reply; this is not a per-row question
 - **User segment impact**: How each relevant segment is affected
 - Inconsistencies between Stories and Figma designs (if any)
 - **Missing designs**: If any UI element referenced in Stories cannot be found in the provided Figma designs, explicitly flag it as missing and ask the user for the design. Do NOT proceed with incomplete design coverage unless the user grants an explicit design waiver (recorded per Step 1b).
@@ -168,12 +171,13 @@ The document must contain these sections (mapped to HTML headings + cards):
 
 - **Overview** (batch mode only) — feature description; dependencies and execution order between Stories
 - **Behavioral Dimensions** — `<table>` listing each dimension that affects behavior, its possible values, and which Items it impacts. Confirmed by human during analysis.
+- **Reverse Inventory** — `<table>`: thing changed (term, event, stored value, flag, field) → every place that shows / reads / writes / emits it (`file:line`) → what it does there today → change needed? (yes → which Item; no → the reason, with the code that was read). "None — the feature changes nothing existing" is allowed only with the searches that were run.
 - **User Segments & Upgrade Impact** — `<table>` or list describing each relevant user segment: who they are, what pre-existing state they may have, and how the feature behaves for them on first encounter.
 - **Executable Items** — one `.item-card` per Item, each with:
   - **Source**: Story #xxx / Figma node xxx
   - **Summary**: What to do and why
   - **Preconditions**: What existing logic or other Items this depends on
-  - **Scope of Impact**: new functionality to add / existing to modify (human-confirmed) / existing to remove (human-confirmed)
+  - **Scope of Impact**: new functionality to add / existing to modify (human-confirmed) / existing to remove (human-confirmed). Every "unchanged", "reused as is" or "out of scope" statement cites the code that was read; reused or mirrored logic lists its conditions, side effects and parameter names
   - **Key UI Specs**: (if Figma available) the Figma file/node reference(s) plus interaction intent and states. Do NOT copy pixel values (dimensions, colors, fonts) into this document — `figma-driven-implementation` extracts them fresh per component at implementation time; values copied here go stale and conflict with that extraction.
   - **Event Tracking**: (only if this Item has tracking requirements) either the confirmed Avo event(s) + properties + trigger conditions (when the Avo branch is ready), or an explicit note that tracking is deferred to placeholders until the Avo branch is merged — list the event names that need TODO placeholders so implementers know what to stub
   - **Upgrade Impact**: how this Item behaves for existing users updating the app — initial flag states, reachability, edge cases
@@ -183,6 +187,8 @@ The document must contain these sections (mapped to HTML headings + cards):
 ## Important
 
 - Do NOT skip the Human Confirmation Gate — presenting associations and waiting for confirmation is mandatory
+- The **Reverse Inventory** is mandatory whenever a codebase is available — it is the list of places the Stories did not name. An inventory with no searches behind it is not an inventory
+- "Unchanged", "same as the existing logic" and "out of scope" are findings that need evidence, never defaults — existing code that the feature mirrors or reuses is read as the spec, including its conditions, side effects and parameter names
 - The output document must be self-contained: a reader should understand the full scope without referring back to the original Stories
 - Every Item MUST include an **Upgrade Impact** section — even if the answer is "no impact on existing users"
 - If tracking requirements exist (Step 5b found any), the Avo branch readiness question is mandatory and every affected Item MUST carry an explicit **Event Tracking** field distinguishing real tracking code vs placeholder TODOs. This distinction is what tells the downstream writing-plans / engineer which to emit.

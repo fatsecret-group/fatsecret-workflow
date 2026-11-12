@@ -1,6 +1,6 @@
 ---
 name: review-task
-description: Use after implementing a task — one review pass covering a sensitive-area sweep, spec compliance, UI verification against Figma (including regression on existing elements), Codex debate, the task's declared verification, and simplification/style. Returns ISSUES for the caller's fix loop, or runs the mandatory human gate and returns APPROVED / ESCALATED. Does NOT commit or mark the task complete; the caller does that in the task's commit step.
+description: Use after implementing a task — one review pass covering a review triage (what the human must read, and why), spec compliance, UI verification against Figma (including regression on existing elements), Codex debate, the task's declared verification, and simplification/style. Returns ISSUES for the caller's fix loop, or runs the mandatory human gate and returns APPROVED / ESCALATED. Does NOT commit or mark the task complete; the caller does that in the task's commit step.
 ---
 
 ## When to Use
@@ -34,7 +34,16 @@ The reviewer performs these checks in order:
 **1. Spec Compliance**
 - Read the task description from the execution checklist / implementation plan — or, on the Lite Track, from the harness task (its declared files, acceptance point, verification, and Figma nodeId/waiver)
 - Read the changed files (use git diff)
-- **Sensitive-area sweep.** Map the diff's paths against the project's `REVIEW.md` ("Sensitive areas" table at the repo root — often git-excluded and local-only, so read it from disk, never from git history, and in a git worktree that lacks it read the main checkout's copy; its "Reviewer asks" question per area is the check to answer). No `REVIEW.md` → judge against the generic categories: local persistence & schema migrations, upgrade/version-gated paths, user-data & preference keys, auth/entitlements/payments, shared API or analytics contracts, cross-module shared models, build/signing/release config. For each touched area record: what changed there, and whether the task's declared Files and acceptance point justify it. Touching a sensitive area is allowed — but it always goes to the human, and is never closed by reviewer or Codex consensus.
+- **Review triage — what the human must read.** Sort the diff so the human's attention goes where a mistake is costly and invisible, and skips what a glance, the compiler or a screen run already covers. Triage finds no bugs — checks 2–5 do that.
+  1. **Intent and expected scope**: the task's acceptance point is the intent; its declared Files, plus the tests and fixtures that exercise them, are the expected scope.
+  2. **`REVIEW.md`**: look for it from each changed file's directory up to the git root — it is often git-excluded and local-only, so search the disk, never git history, and in a git worktree that lacks it read the main checkout's copy. Take its "Sensitive areas" table and each area's "Reviewer asks"; the table replaces the default list below. An area is touched when the diff changes it, not when changed code merely reads it. Use "Reviewer asks" as the starting point and ask what fits this change.
+  3. **Layer the change**: group the changed lines into layers by what they do, named in this codebase's terms ("Diary cell layout", "check-in trigger rule"). One hunk can split across layers; a layer can span files. Every changed line sits in exactly one layer.
+  4. **Tier each layer** by what the hunk does, never by where it lives — a hunk in a view file that changes navigation, gating, persistence or an analytics event is logic:
+     - **Must-review** — a mistake costs users or money and no test or screen run would show it: a sensitive area (`REVIEW.md`'s table, or by default local persistence and schema migration; upgrade and version-gated paths; user data and preference keys; auth, entitlements, payments; shared API and analytics contracts — payload shape, field and event names; models shared across modules; build, signing, release and runtime config — flags, timeouts, limits; secrets, PII and permissions); removed behaviour, data or error handling; concurrency, ordering, retry and fallback logic; a hunk outside expected scope that changes behaviour, or expected scope the change left undone.
+     - **Spot-check** — ordinary logic: business rules, calculations, internal refactors, a new path behind a flag; also any test hunk that deletes or weakens an assertion.
+     - **Skip** — layout and styling, user-visible copy, docs and comments, test code, formatting, renames the compiler checks.
+  5. **For each must-review layer**: read its callers before stating the impact — a claim inferred only from references is a guess. Then find what guards it: the tests and verification scripts that actually exercise the changed lines (one that only touches the file does not count). Write the guard in plain words a non-author understands — what situation it sets up and what would make it fail if this change were wrong; a test that only repeats the new value catches later drift, not a value that is wrong today — say both halves. Nothing guards it → say so, say what check would prove it, and whether that can happen before it ships. When the question is intent rather than correctness (was removing this meant?), say the story or the author answers it.
+  Only the human clears a must-review item; reviewer judgement, Codex consensus or green tests never do.
 - Verify all requirements in the task are implemented — nothing missing, **nothing extra**: any change the task didn't ask for (adjacent "improvements", edits to working code, files outside the task's declared list) is an issue, not a bonus
 
 **2. UI Verification (only if UI was changed)**
@@ -95,8 +104,8 @@ The reviewer compiles all findings into a single report:
 ```
 ## Post-Task Review: [Task Name]
 
-### Sensitive Areas (opens the report, before any finding)
-[Every sensitive area the diff touches: area → what changed → justified by the task's expected scope? "None touched" in one line when the diff touches none. These items are the human's to decide at the gate — agent consensus never closes one.]
+### Review Triage (opens the report, before any finding)
+[Four lines: Intent · Expected scope · Actual scope (what falls outside expected scope, or "all in scope") · View (the git command that shows this change). Then Must review — one numbered item per layer, in the format the human gate presents (paragraph, pseudocode, why / ask / guard / where); Spot-check and Skip — one bullet per layer. "Nothing must-review" in one line when that is the case.]
 
 ### 1. Spec Compliance: PASS / ISSUES
 ### 2. UI Verification: PASS / ISSUES / UNVERIFIED / N/A
@@ -124,10 +133,42 @@ If the task has **no Figma reference AND no unit-testable logic** (e.g. backend-
 **The skill's verdict is set by the human, not by the reviewer.**
 
 1. Post a concise summary to the user: what was implemented, what was reviewed, fixes made across rounds, the reviewer's recommendation.
-2. **Show the human what they are approving — sensitive areas first:** every item from the report's **Sensitive Areas** list (area, what changed there, the scope justification) — this list is what the human's review attention is *for*, so it leads. Then the diff summary — files changed plus the key hunks (for larger diffs, the exact `git diff`/`git show` command to view it) — and, verbatim, every item from the report's **Unverified** list. For UI tasks, include the reviewer's simulator screenshot (path) beside the Figma reference so the human can eyeball the change themselves. An Approve must be informed consent; approving with UNVERIFIED items or touched sensitive areas is an explicit, recorded acknowledgement.
+2. **Show the human what they are approving — the review triage, in the conversation's language** (this is a message to the human, not an artifact). Open with four lines: **Intent**, **Expected scope**, **Actual scope**, **View** (the git command that shows the change). Then:
+   - **Must review** — one numbered item per layer, each in this order:
+     1. A short plain-words paragraph: what changed, and what it means for users or data.
+     2. **Pseudocode in a code block**: what the code does when it runs, as steps and branches in order — who triggers it, what happens, what happens on success and on failure. Every step is a plain sentence in the conversation's language, never code: no assignments, comparisons, `guard`, `for` loops or function calls. It is not a field-by-field old → new list. Keep the real values that matter (a limit of 4, a key the user sees); name an identifier only where the reader needs it to find the code. Mark each changed step with a short `#` comment saying what it was before ("# new: was a fixed single reply"), and unchanged steps that matter with "# same as before". Cover only the path the change touches, about 15 short lines per block.
+     3. A bullet list: **why** (the rule or sensitive area that made it must-review), **ask** (the one question the human answers), **guard** (plain words: what protects this change, or that nothing does and what would), **where** (`path:line`).
+   - **Spot-check** and **Skip** — one bullet per layer: the layer, what changed or why it is skipped, its paths.
+   - Verbatim, every item from the report's **Unverified** list. For UI tasks, the reviewer's simulator screenshot (path) beside the Figma reference so the human can eyeball the change themselves.
+
+   A pseudocode block that reads like code — never this:
+
+   ```
+   submit(text, addressing):
+     guard canSubmit
+     for i in 0..<4:
+       candidate == controlled → return
+   ```
+
+   The same path, the way it should read:
+
+   ```
+   User sends a message:
+     not allowed while a reply is being generated or merged
+     add the message to the conversation and start one relay round
+   A relay round is at most 4 replies:
+     ask the model for one reply
+     look at who the model says speaks next:
+       nobody, or the user → the round ends          # new: was always one reply
+       another model role → note it is owed a turn, keep going
+   When the round ends:
+     an error mid-way → drop the unfinished reply, show Retry   # same as before
+   ```
+
+   An Approve must be informed consent; approving with must-review or UNVERIFIED items is an explicit, recorded acknowledgement.
    **What an Approve does NOT assert:** agent review plus green tests does not prove UI behaviour — QA's own testing and Step 7a's manual-QA list stay in the loop regardless of this Approve; say so when presenting a UI task.
 3. **Call `AskUserQuestion`** with:
-   - `question`: "Review for `<task name>` complete. Recommendation: APPROVE. Sensitive areas: `<areas or none>`. Unverified: `<list or none>`. Approve commit + TaskUpdate?"
+   - `question`: "Review for `<task name>` complete. Recommendation: APPROVE. Must review: `<items or none>`. Unverified: `<list or none>`. Approve commit + TaskUpdate?"
    - `header`: "Task review"
    - `options`: `"Approve"` (proceed to commit and TaskUpdate) / `"Escalate"` (surface issues, block commit, wait for instructions)
    - `multiSelect`: false
@@ -154,4 +195,5 @@ If the task has **no Figma reference AND no unit-testable logic** (e.g. backend-
 | "This task was trivial, confirmation would be noise" | Then the user will click Approve in one tap. Call it anyway. |
 | "I'll batch gates at the end of the plan" | Every task's gate is independent. Don't batch. |
 | "Build/tests can't run here, mark it SKIPPED and move on" | Report it UNVERIFIED and surface it verbatim at the human gate. Unverified ≠ passed. |
-| "The diff is too big to show, they trust me" | Show the file list + key hunks, or give the exact command to view it. Approval must be informed. |
+| "The diff is too big to show, they trust me" | Show the triage: every must-review item with its pseudocode, plus the command to view the diff. Approval must be informed. |
+| "Pasting the diff hunk is clearer than pseudocode" | The human reads the gate to decide, not to compile. Plain-sentence steps, changed ones marked. |

@@ -134,7 +134,7 @@ The workflow calls the CLI directly (`codex exec --sandbox read-only`, `codex re
 
 | Skill | Description |
 |-------|-------------|
-| `review-task` | Per-task review before every commit: sensitive-area sweep (project `REVIEW.md`), spec compliance, UI verification against Figma, Codex debate (built-in `/code-review` fallback), the task's declared verification, simplification — then a mandatory human approval gate |
+| `review-task` | Per-task review before every commit: review triage — the change sorted into must-review / spot-check / skip, each must-review item explained in plain-language pseudocode (sensitive areas from the project's `REVIEW.md`) — spec compliance, UI verification against Figma, Codex debate (built-in `/code-review` fallback), the task's declared verification, simplification — then a mandatory human approval gate |
 | `validate-test-plan` | Validate what the per-task reviews left unproven (uncovered acceptance points, unverified rows) plus the feature's TestSecret cases — refute-first verdicts per sub-clause; criticality × verifiability routing shrinks the manual-QA list; runtime clauses captured via simulator + Proxyman or explicitly punted; outcome on QA's cases recorded to TestSecret as a run (Dev-Verified / AI-Tested / Failed / Retest / Skipped; punted cases stay Untested as QA's manual queue) |
 
 ## Per-project setup
