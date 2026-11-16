@@ -35,7 +35,7 @@ When the model running this workflow is a top-tier reasoning model and the harne
 
 ## Prerequisites Check
 
-Run this at Step 1 and present **one readiness table** (MCP servers + the Codex CLI) to the user before proceeding. (The sub-skills ship in this plugin — they need no availability check.) Startup detection is early warning, not a guarantee — an MCP alive now can be gone by Step 6, so the per-step preflights still own the real failure handling.
+Run this at Step 1 and present **one readiness table** (plugin version + MCP servers + the Codex CLI) to the user before proceeding. (The sub-skills ship in this plugin — they need no availability check.) Startup detection is early warning, not a guarantee — an MCP alive now can be gone by Step 6, so the per-step preflights still own the real failure handling.
 
 **Required MCPs** (missing → report at Step 1; the user either fixes it now or explicitly accepts failing later at the step that needs it):
 - `xcodebuildmcp` — builds, scoped test runs and the simulator pass in Step 6 / `review-task`
@@ -46,6 +46,17 @@ Run this at Step 1 and present **one readiness table** (MCP servers + the Codex 
 - `proxyman` — network capture for script-row verification (Step 6 / `review-task`) and `validate-test-plan` Phase 3. Without it, script rows assert on the script's own input/output — except rows about a request the app itself sends, which only a capture can observe: those are reported UNVERIFIED and carried to Step 7a — and capture-dependent R cases stay PUNTED to manual QA.
 - `shortcut` — reads the stories (Step 2) and posts the decision summary to them (Step 3 gate). Unavailable → the human pastes the stories in, and the approved summary is handed to the human to paste onto each story.
 - `testsecret` — TestSecret, where QA keeps their test cases: Step 4 uploads the draft cases as Draft; Step 7a validates the feature's cases and writes results back. Unreachable or not configured → the upload is deferred with a note in `test-plan.html` and Step 7a validates the dev side only, both stated to the user (setup guide: https://claude.ai/code/artifact/656220b8-5cc5-46de-8880-e330839cbb62).
+
+**Plugin version** (first row of the same table; Step 1 only — never re-checked mid-feature, on re-entry or after a resume, because changing the rules under a feature in flight is worse than being a version behind):
+- **Installed**: the `version` in `.claude-plugin/plugin.json`, two levels above this skill's own directory.
+- **Latest**: `curl -fsS --max-time 5 https://raw.githubusercontent.com/fatsecret-group/fatsecret-workflow/main/.claude-plugin/plugin.json`, its `version`.
+- Compare part by part as numbers (`1.9` is older than `1.23`). **Latest is higher** → say so in the table (`installed → latest`) and ask once: update now, or continue on the installed version. Update now → the human runs the two commands below (or says to run them), then **restarts the session and starts the workflow again** — a running session keeps the old skill text, so continuing after the update would still run the old workflow. Continue → proceed and don't ask again this session.
+
+  ```bash
+  claude plugin marketplace update fatsecret-workflow
+  claude plugin update fatsecret-workflow@fatsecret-workflow
+  ```
+- Latest is equal or lower, or the check fails (offline, timeout, unreadable reply) → one line in the table ("up to date" / "couldn't check") and continue. This row never blocks.
 
 **Worktree readiness** (same table): a fresh git worktree does not carry git-excluded local files. Before Step 2, confirm the working copy has the project's `REVIEW.md` (when the project keeps one), the dependencies the build needs (e.g. `Pods/` in sync with its lockfile), and the project-scoped MCP config (`.mcp.json`) — copy or link them from the main checkout when missing.
 

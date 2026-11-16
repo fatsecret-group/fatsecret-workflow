@@ -22,6 +22,8 @@ claude plugin marketplace update fatsecret-workflow
 claude plugin update fatsecret-workflow@fatsecret-workflow
 ```
 
+The workflow checks for a newer version each time it starts (Step 1) and reminds you to run these. Restart Claude Code after updating.
+
 **Uninstall:**
 ```bash
 claude plugins uninstall fatsecret-workflow
