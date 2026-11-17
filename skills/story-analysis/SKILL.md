@@ -159,7 +159,7 @@ Do NOT dump all questions as a list for the user to answer in bulk — this lead
 **Step 8 — Save document**
 - Save to the feature's output directory (see feature-workflow Output Directory rule) as `story-analysis.html`
 - Present a summary to the user
-- This document is the input for design (feature-workflow Step 3), whose agreed decisions are then posted to the Shortcut stories for QA
+- This document is the input for design (feature-workflow Step 3). Its calls and open questions are posted to the Shortcut stories and `#agent-team` before design starts, so QA and the other platform can object early
 
 ## Output Format
 
